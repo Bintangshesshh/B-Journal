@@ -1,7 +1,10 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
 import AlbumCard from './AlbumCard';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 
 interface Album {
   id: number;
@@ -15,102 +18,352 @@ interface Album {
   titleTextColor?: string;
 }
 
-const INITIAL_ALBUMS: Album[] = [
-  {
-    id: 1,
-    title: "Urban '23",
-    description: "Kumpulan foto arsitektur dan jalanan kota bernuansa brutalist.",
-    photoCount: 142,
-    updateTime: "2 days ago",
-    imgSrc: "https://lh3.googleusercontent.com/aida-public/AB6AXuCpcFlZgPPYv4RXQx9RvyxQovAv_H8nTrJMWFk8amvtB0u9Hgr18YcSxmhoR4tNhqxrILKTnItKO1fG2LNpAlTb2Ga0UpputArMu-uGytY6eUZDPrHLGOrg1LuQ4eV_OShMK2dvaNdOi_jgr41PBZ1bPjBTkGwdTTERs8tSyK54gSAcQVf9JGpycdjw_vYLRmoqaLcscrG9jTHMD8zpSL4Tqof83HKJyVHiwMniwb_bcSEOk5MR9S4ZAc5SUCtK9RuUohcV1rgSOls",
-    tapeStyle: { top: "10px", right: "-10px", transform: "rotate(45deg)", backgroundColor: "#d1d5db" }
-  },
-  {
-    id: 2,
-    title: "Studio Portraits",
-    description: "Koleksi foto potret di studio dengan pencahayaan kontras tinggi.",
-    photoCount: 56,
-    updateTime: "1 week ago",
-    imgSrc: "https://lh3.googleusercontent.com/aida-public/AB6AXuByCEirRcAI3BvUor3jlvCXlWhk1qSKIP8vXgpsOO8kO0o7c7UwL6ioV6BY9eg42HbAZAFsd9_b6lu2Ws4wA63Mh6YJB3nHTn5gwha16M-gU6HIqvfNcRbDyQF4brWH7VKJPA4pVkZ3w-ffw5DpUhZxFpfuEdD5OAq-KmszTpJjrYCqwG9h2ffshJffuHF4pLP6wQHETELGIHFvcWxqmumCpL-a9Z4lGt-EjU03qwOC3A4-oHkiBP9BR55ZAJqemvv81jvb5Ot6cqg",
-    tapeStyle: { top: "20px", right: "-5px", transform: "rotate(30deg)", backgroundColor: "#ef4444" }
-  },
-  {
-    id: 3,
-    title: "Street Grits",
-    description: "Jalanan malam yang gelap dan berhujan, penuh butiran film.",
-    photoCount: 304,
-    updateTime: "Today",
-    imgSrc: "https://lh3.googleusercontent.com/aida-public/AB6AXuDbX7MqHp99Sq7U08AGqmMxHycajv9HLEu3SmuuJzzXxr0ZYAH57zYx4SuvyqLwh7t3wIdIY0E736ItV3aQuk0jC_ApC5AFY-KUnCQTHS1VuquuqkncSigCgTGURD5xSk3AjyO0KJvY-bMhXb4pT-TE0NrlsMhht6_WlSP4su8TgEyTJq-MBXoIiu8TNiffnmT_scvnIf-uc_i_b3b0vPJqcW-jssGzYvVOSQ4-rjqLhfqBb6IHtFiigZH1uq05HfeMBkmSqqJGnPs",
-    titleBgColor: "bg-liverpool-red",
-    titleTextColor: "text-white"
-  }
-];
-
 export default function AlbumGrid() {
-  const [albums, setAlbums] = useState<Album[]>(INITIAL_ALBUMS);
+  const router = useRouter();
+  const [albums, setAlbums] = useState<Album[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   
   // State untuk Modal Form (Create & Update)
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editSelectedId, setEditSelectedId] = useState<number | null>(null);
   const [formData, setFormData] = useState({ title: '', description: '' });
+  const [allPhotos, setAllPhotos] = useState<Array<{ id: number; title: string; imgSrc: string; albumId: number | null }>>([]);
+  const [selectedPhotoIds, setSelectedPhotoIds] = useState<number[]>([]);
+  const [initialAlbumPhotoIds, setInitialAlbumPhotoIds] = useState<number[]>([]);
+  const [isLoadingPhotos, setIsLoadingPhotos] = useState(false);
+  const [photoQuery, setPhotoQuery] = useState('');
+  const [coverPhotoId, setCoverPhotoId] = useState<number | null>(null);
 
-  // State untuk Notifikasi (Sesuai DFD: "Notif berhasil")
+  const coverKey = (albumId: number) => `bJournalAlbumCover_${albumId}`;
+  const getStoragePath = (publicUrl: string) => {
+    const marker = '/photos/';
+    const index = publicUrl.indexOf(marker);
+    return index >= 0 ? publicUrl.slice(index + marker.length) : '';
+  };
+
+  // State untuk Notifikasi
   const [notification, setNotification] = useState<{show: boolean, message: string}>({ show: false, message: '' });
+  const [confirmAction, setConfirmAction] = useState<null | {
+    type: 'delete-album' | 'delete-photo';
+    albumId?: number;
+    title?: string;
+    photoId?: number;
+    photoUrl?: string;
+  }>(null);
 
-  // Memunculkan Notifikasi
+  const DEFAULT_IMAGE = "https://lh3.googleusercontent.com/aida-public/AB6AXuCpcFlZgPPYv4RXQx9RvyxQovAv_H8nTrJMWFk8amvtB0u9Hgr18YcSxmhoR4tNhqxrILKTnItKO1fG2LNpAlTb2Ga0UpputArMu-uGytY6eUZDPrHLGOrg1LuQ4eV_OShMK2dvaNdOi_jgr41PBZ1bPjBTkGwdTTERs8tSyK54gSAcQVf9JGpycdjw_vYLRmoqaLcscrG9jTHMD8zpSL4Tqof83HKJyVHiwMniwb_bcSEOk5MR9S4ZAc5SUCtK9RuUohcV1rgSOls";
+
+  const fetchAlbums = async () => {
+    try {
+      const storedUser = localStorage.getItem('bJournalUser');
+      if (!storedUser) return;
+      const user = JSON.parse(storedUser);
+
+      const { data, error } = await supabase
+        .from('album')
+        .select('*, foto(LokasiFile)')
+        .eq('UserID', user.UserID);
+
+      if (error) {
+        throw error;
+      }
+
+      if (data) {
+        const formattedAlbums = data.map((item: any) => ({
+          id: item.AlbumID,
+          title: item.NamaAlbum,
+          description: item.Deskripsi || '',
+          photoCount: item.foto?.length || 0,
+          updateTime: item.TanggalDibuat,
+          imgSrc: item.foto && item.foto.length > 0 ? item.foto[0].LokasiFile : DEFAULT_IMAGE
+        }));
+
+        const withCover = formattedAlbums.map((album) => {
+          const albumPhotos = data.find((item: any) => item.AlbumID === album.id)?.foto || [];
+          const albumUrls = albumPhotos.map((photo: any) => photo.LokasiFile);
+          const storedCover = localStorage.getItem(coverKey(album.id));
+          const coverUrl = storedCover && albumUrls.includes(storedCover) ? storedCover : null;
+          return {
+            ...album,
+            imgSrc: coverUrl || album.imgSrc
+          };
+        });
+
+        setAlbums(withCover);
+      }
+    } catch (err: any) {
+      console.error('Error fetching albums:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAlbums();
+  }, []);
+
   const showNotification = (message: string) => {
     setNotification({ show: true, message });
     setTimeout(() => setNotification({ show: false, message: '' }), 3000);
   };
 
-  // Handler Buka Modal Tambah Baru
   const handleOpenAdd = () => {
     setEditSelectedId(null);
     setFormData({ title: '', description: '' });
+    setAllPhotos([]);
+    setSelectedPhotoIds([]);
+    setInitialAlbumPhotoIds([]);
+    setCoverPhotoId(null);
+    setPhotoQuery('');
     setIsModalOpen(true);
   };
 
-  // Handler Buka Modal Edit
   const handleOpenEdit = (album: Album) => {
     setEditSelectedId(album.id);
     setFormData({ title: album.title, description: album.description });
+    setPhotoQuery('');
     setIsModalOpen(true);
+    loadAlbumPhotos(album.id);
   };
 
-  // Handler Submit Form (Create / Update)
-  const handleSubmit = (e: React.FormEvent) => {
+  const loadAlbumPhotos = async (albumId: number) => {
+    setIsLoadingPhotos(true);
+    const storedUser = localStorage.getItem('bJournalUser');
+    if (!storedUser) {
+      setIsLoadingPhotos(false);
+      return;
+    }
+
+    const user = JSON.parse(storedUser);
+    const { data, error } = await supabase
+      .from('foto')
+      .select('FotoID, JudulFoto, LokasiFile, AlbumID')
+      .eq('UserID', user.UserID)
+      .eq('AlbumID', albumId)
+      .order('TanggalUnggah', { ascending: false });
+
+    if (error || !data) {
+      setIsLoadingPhotos(false);
+      return;
+    }
+
+    const normalized = data.map((photo: any) => ({
+      id: photo.FotoID,
+      title: photo.JudulFoto || 'Untitled',
+      imgSrc: photo.LokasiFile,
+      albumId: photo.AlbumID
+    }));
+
+    const albumPhotoIds = normalized.filter((photo) => photo.albumId === albumId).map((photo) => photo.id);
+    const storedCoverUrl = localStorage.getItem(coverKey(albumId));
+    const storedCoverId = storedCoverUrl ? normalized.find((photo) => photo.imgSrc === storedCoverUrl)?.id || null : null;
+    setAllPhotos(normalized);
+    setSelectedPhotoIds(albumPhotoIds);
+    setInitialAlbumPhotoIds(albumPhotoIds);
+    setCoverPhotoId(storedCoverId || albumPhotoIds[0] || null);
+    setIsLoadingPhotos(false);
+  };
+
+  const handleSelectAll = () => {
+    setSelectedPhotoIds(allPhotos.map((photo) => photo.id));
+    if (!coverPhotoId && allPhotos.length > 0) setCoverPhotoId(allPhotos[0].id);
+  };
+
+  const handleClearAll = () => {
+    setSelectedPhotoIds([]);
+    setCoverPhotoId(null);
+  };
+
+  const deletePhoto = async (photoId: number, photoUrl: string) => {
+    const storagePath = getStoragePath(photoUrl);
+    if (!storagePath) {
+      showNotification('Gagal membaca lokasi file.');
+      return;
+    }
+
+    const { error: storageError } = await supabase.storage.from('photos').remove([storagePath]);
+    if (storageError) {
+      showNotification('Gagal menghapus file foto.');
+      return;
+    }
+
+    const { error: dbError } = await supabase.from('foto').delete().eq('FotoID', photoId);
+    if (dbError) {
+      showNotification('Gagal menghapus data foto.');
+      return;
+    }
+
+    const nextAllPhotos = allPhotos.filter((photo) => photo.id !== photoId);
+    const nextSelected = selectedPhotoIds.filter((id) => id !== photoId);
+    const nextInitial = initialAlbumPhotoIds.filter((id) => id !== photoId);
+    let nextCover = coverPhotoId;
+
+    if (nextCover === photoId) {
+      nextCover = nextSelected[0] || null;
+    }
+
+    setAllPhotos(nextAllPhotos);
+    setSelectedPhotoIds(nextSelected);
+    setInitialAlbumPhotoIds(nextInitial);
+    setCoverPhotoId(nextCover);
+
+    if (editSelectedId) {
+      if (nextCover) {
+        const coverPhoto = nextAllPhotos.find((photo) => photo.id === nextCover);
+        if (coverPhoto) localStorage.setItem(coverKey(editSelectedId), coverPhoto.imgSrc);
+      } else {
+        localStorage.removeItem(coverKey(editSelectedId));
+      }
+    }
+
+    await fetchAlbums();
+    showNotification('Foto berhasil dihapus.');
+  };
+
+  const requestDeletePhoto = (photoId: number, photoUrl: string) => {
+    setConfirmAction({ type: 'delete-photo', photoId, photoUrl });
+  };
+
+  const togglePhotoSelection = (photoId: number) => {
+    setSelectedPhotoIds((prev) => {
+      if (prev.includes(photoId)) {
+        const next = prev.filter((id) => id !== photoId);
+        if (coverPhotoId === photoId) setCoverPhotoId(next[0] || null);
+        return next;
+      }
+      const next = [...prev, photoId];
+      if (!coverPhotoId) setCoverPhotoId(photoId);
+      return next;
+    });
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.title.trim()) return;
 
+    const storedUser = localStorage.getItem('bJournalUser');
+    if (!storedUser) return;
+    const user = JSON.parse(storedUser);
+
     if (editSelectedId) {
-      // Update Data
-      setAlbums(albums.map(acc => 
-        acc.id === editSelectedId 
-          ? { ...acc, title: formData.title, description: formData.description, updateTime: "Just now" } 
-          : acc
-      ));
+      // Update Data in Supabase
+      const { error } = await supabase
+        .from('album')
+        .update({ NamaAlbum: formData.title, Deskripsi: formData.description })
+        .eq('AlbumID', editSelectedId);
+
+      if (error) {
+        showNotification(`Gagal update album!`);
+        return;
+      }
+
+      const toAdd = selectedPhotoIds.filter((id) => !initialAlbumPhotoIds.includes(id));
+      const toRemove = initialAlbumPhotoIds.filter((id) => !selectedPhotoIds.includes(id));
+
+      let nextCoverId = coverPhotoId;
+      if (nextCoverId && !selectedPhotoIds.includes(nextCoverId)) {
+        nextCoverId = selectedPhotoIds[0] || null;
+      }
+
+      if (toAdd.length > 0) {
+        await supabase
+          .from('foto')
+          .update({ AlbumID: editSelectedId })
+          .in('FotoID', toAdd);
+      }
+
+      if (toRemove.length > 0) {
+        await supabase
+          .from('foto')
+          .update({ AlbumID: null })
+          .in('FotoID', toRemove);
+      }
+
+      if (nextCoverId) {
+        const coverPhoto = allPhotos.find((photo) => photo.id === nextCoverId);
+        if (coverPhoto) localStorage.setItem(coverKey(editSelectedId), coverPhoto.imgSrc);
+      } else {
+        localStorage.removeItem(coverKey(editSelectedId));
+      }
+
+      await fetchAlbums();
       showNotification(`Album "${formData.title}" berhasil diupdate!`);
     } else {
-      // Simpan Data Baru
-      const newAlbum: Album = {
-        id: Date.now(),
-        title: formData.title,
-        description: formData.description,
-        photoCount: 0,
-        updateTime: "Just now",
-        imgSrc: "https://lh3.googleusercontent.com/aida-public/AB6AXuAbb0XrIbS3JGrrbQsq3t26eJDAAQMgD0M4wGrrRDrMyZL5WBprR-GCW4cBDJjyGgaIzBFYeAD2x0NUVOZyouIoKq-MLxHVg_I1Oi7NbKVqyuyCQO7IFSdB1-hMHQbjmhFIEBLdT_7wSfSgH0XPGS_MitZLf-VbOX2dmbKuQ7JRPiIAjQLSlqSflGJZF6u447cTyewm9C0UKHQuFkiFeDQm2sbO-ueToJwKc6cDNrrCOlmTuXP7qU0B2gVoh-GG1RtdgnD3qPfbHsc", // Placeholder image
-      };
-      setAlbums([newAlbum, ...albums]);
-      showNotification(`Album "${formData.title}" berhasil dibuat!`);
+      // Save New Data to Supabase
+      const { data, error } = await supabase
+        .from('album')
+        .insert([{ 
+          NamaAlbum: formData.title, 
+          Deskripsi: formData.description,
+          TanggalDibuat: new Date().toISOString().split('T')[0],
+          UserID: user.UserID
+        }])
+        .select()
+        .single();
+
+      if (!error && data) {
+        const newAlbum: Album = {
+          id: data.AlbumID,
+          title: data.NamaAlbum,
+          description: data.Deskripsi || '',
+          photoCount: 0,
+          updateTime: data.TanggalDibuat,
+          imgSrc: DEFAULT_IMAGE,
+        };
+        setAlbums([newAlbum, ...albums]);
+        setIsModalOpen(false);
+        router.push(`/upload?albumId=${data.AlbumID}`);
+        return;
+      } else {
+        showNotification(`Gagal membuat album!`);
+      }
     }
     setIsModalOpen(false);
   };
 
-  // Handler Hapus Record
-  const handleDelete = (id: number, title: string) => {
-    if (window.confirm(`Yakin ingin menghapus album "${title}"?`)) {
+  const deleteAlbum = async (id: number, title: string) => {
+    const { data: photos } = await supabase.from('foto').select('LokasiFile').eq('AlbumID', id);
+
+    if (photos && photos.length > 0) {
+      const filePaths = photos.map((p: any) => {
+        const url = p.LokasiFile;
+        const parts = url.split('/public/photos/');
+        return parts.length > 1 ? parts[1] : null;
+      }).filter(Boolean);
+
+      if (filePaths.length > 0) {
+        await supabase.storage.from('photos').remove(filePaths);
+      }
+
+      await supabase.from('foto').delete().eq('AlbumID', id);
+    }
+
+    const { error } = await supabase.from('album').delete().eq('AlbumID', id);
+    if (!error) {
       setAlbums(albums.filter(album => album.id !== id));
-      showNotification(`Album "${title}" berhasil dihapus!`);
+      showNotification(`Album "${title}" beserta isinya berhasil dihapus!`);
+    } else {
+      showNotification(`Gagal menghapus album!`);
+      console.error(error);
+    }
+  };
+
+  const requestDeleteAlbum = (albumId: number, title: string) => {
+    setConfirmAction({ type: 'delete-album', albumId, title });
+  };
+
+  const handleConfirmAction = async () => {
+    if (!confirmAction) return;
+    const action = confirmAction;
+    setConfirmAction(null);
+
+    if (action.type === 'delete-photo' && action.photoId && action.photoUrl) {
+      await deletePhoto(action.photoId, action.photoUrl);
+      return;
+    }
+
+    if (action.type === 'delete-album' && action.albumId && action.title) {
+      await deleteAlbum(action.albumId, action.title);
     }
   };
 
@@ -127,6 +380,20 @@ export default function AlbumGrid() {
           </div>
         )}
 
+        <ConfirmDialog
+          open={!!confirmAction}
+          title={confirmAction?.type === 'delete-album' ? 'Hapus album?' : 'Hapus foto?'}
+          message={
+            confirmAction?.type === 'delete-album'
+              ? `Album "${confirmAction?.title || ''}" dan semua fotonya akan dihapus permanen.`
+              : 'Foto ini akan dihapus permanen dari album dan storage.'
+          }
+          confirmLabel="Ya, hapus"
+          cancelLabel="Batal"
+          onConfirm={handleConfirmAction}
+          onCancel={() => setConfirmAction(null)}
+        />
+
         {/* Add New Card (Micu Modal Add) */}
         <button onClick={handleOpenAdd} className="distressed-card group cursor-pointer bg-[#e8e4db] aspect-[4/3] flex flex-col items-center justify-center transition-transform hover:-translate-y-1 hover:shadow-[8px_8px_0px_rgba(0,0,0,0.9)] w-full">
           <div className="w-16 h-16 bg-liverpool-red rounded-full border-2 border-pitch-black flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
@@ -135,27 +402,32 @@ export default function AlbumGrid() {
           <span className="font-headline-md font-black tracking-tighter uppercase text-pitch-black text-xl">Add New</span>
         </button>
 
-        {/* Render Dummy Albums State */}
-        {albums.map((album) => (
-          <AlbumCard
-            key={album.id}
-            title={album.title}
-            photoCount={album.photoCount}
-            updateTime={album.updateTime}
-            imgSrc={album.imgSrc}
-            tapeStyle={album.tapeStyle}
-            titleBgColor={album.titleBgColor}
-            titleTextColor={album.titleTextColor}
-            onEdit={() => handleOpenEdit(album)}
-            onDelete={() => handleDelete(album.id, album.title)}
-          />
-        ))}
+        {isLoading ? (
+          <div className="col-span-full py-20 text-center font-black text-2xl uppercase tracking-tighter text-pitch-black animate-pulse">
+            LOADING ALBUMS...
+          </div>
+        ) : (
+          albums.map((album) => (
+            <AlbumCard
+              key={album.id}
+              title={album.title}
+              photoCount={album.photoCount}
+              updateTime={album.updateTime}
+              imgSrc={album.imgSrc}
+              tapeStyle={album.tapeStyle}
+              titleBgColor={album.titleBgColor}
+              titleTextColor={album.titleTextColor}
+              onEdit={() => handleOpenEdit(album)}
+              onDelete={() => requestDeleteAlbum(album.id, album.title)}
+            />
+          ))
+        )}
       </div>
 
       {/* Modal Popup Create/Update */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white border-4 border-pitch-black p-6 w-full max-w-md shadow-[12px_12px_0px_0px_rgba(200,16,46,1)] rotate-1 relative">
+          <div className="bg-white border-4 border-pitch-black p-6 md:p-8 w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-[12px_12px_0px_0px_rgba(200,16,46,1)] relative">
             <div className="absolute -top-3 -left-3 w-20 h-6 bg-zinc-400 opacity-80 -rotate-12 border border-white"></div>
             
             <h2 className="text-2xl font-black uppercase text-pitch-black mb-6 tracking-tighter border-b-4 border-pitch-black pb-2">
@@ -206,6 +478,102 @@ export default function AlbumGrid() {
                 </button>
               </div>
             </form>
+
+            {editSelectedId && (
+              <div className="mt-6 border-t-4 border-pitch-black pt-5">
+                <div className="flex flex-col gap-3 mb-4">
+                  <h3 className="text-lg font-black uppercase text-pitch-black">Manage Photos</h3>
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <input
+                      value={photoQuery}
+                      onChange={(e) => setPhotoQuery(e.target.value)}
+                      placeholder="Search photo title..."
+                      className="flex-1 border-2 border-pitch-black p-2 font-body-md normal-case text-pitch-black"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={handleSelectAll}
+                        className="px-3 py-2 border-2 border-pitch-black bg-white text-pitch-black hover:bg-stadium-grey transition-colors"
+                      >
+                        Select all
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleClearAll}
+                        className="px-3 py-2 border-2 border-pitch-black bg-white text-pitch-black hover:bg-stadium-grey transition-colors"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                {isLoadingPhotos ? (
+                  <div className="py-6 text-center font-black uppercase text-pitch-black animate-pulse">
+                    Loading photos...
+                  </div>
+                ) : allPhotos.length === 0 ? (
+                  <div className="py-6 text-center font-black uppercase text-tertiary border-2 border-dashed border-pitch-black">
+                    No photos yet.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 max-h-[50vh] overflow-y-auto pr-1">
+                    {allPhotos
+                      .filter((photo) => photo.title.toLowerCase().includes(photoQuery.toLowerCase()))
+                      .map((photo) => {
+                      const isSelected = selectedPhotoIds.includes(photo.id);
+                      const isCover = coverPhotoId === photo.id;
+                      return (
+                        <div
+                          key={photo.id}
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => togglePhotoSelection(photo.id)}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter' || event.key === ' ') {
+                              event.preventDefault();
+                              togglePhotoSelection(photo.id);
+                            }
+                          }}
+                          className={`border-2 p-2 text-left transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-pitch-black ${isSelected ? 'border-liverpool-red bg-zinc-100' : 'border-pitch-black bg-white'}`}
+                        >
+                          <div className="aspect-square w-full overflow-hidden border-2 border-pitch-black mb-2">
+                            <img src={photo.imgSrc} alt={photo.title} className="w-full h-full object-cover" />
+                          </div>
+                          <div className="text-[10px] font-black uppercase text-pitch-black line-clamp-2">{photo.title}</div>
+                          <div className="flex items-center justify-between text-[9px] uppercase font-bold mt-1 text-secondary gap-2">
+                            <span>{isSelected ? 'In album' : 'Not in album'}</span>
+                            <div className="flex items-center gap-1 flex-wrap justify-end">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (!isSelected) setSelectedPhotoIds((prev) => [...prev, photo.id]);
+                                  setCoverPhotoId(photo.id);
+                                }}
+                                className={`px-2 py-0.5 border border-pitch-black ${isCover ? 'bg-liverpool-red text-white' : 'bg-white text-pitch-black'}`}
+                              >
+                                Cover
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  requestDeletePhoto(photo.id, photo.imgSrc);
+                                }}
+                                className="px-2 py-0.5 border border-pitch-black bg-white text-pitch-black hover:bg-liverpool-red hover:text-white"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}

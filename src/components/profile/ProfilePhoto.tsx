@@ -1,25 +1,128 @@
 "use client";
 
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { supabase } from '@/lib/supabase';
+
+type ProfileUser = {
+  userId: number;
+  username: string;
+  email: string | null;
+};
 
 export default function ProfilePhoto() {
   const [notification, setNotification] = useState<{ show: boolean, message: string }>({ show: false, message: '' });
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [profile, setProfile] = useState<ProfileUser | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const showNotification = (message: string) => {
     setNotification({ show: true, message });
     setTimeout(() => setNotification({ show: false, message: '' }), 3000);
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      showNotification("Foto profil diperbarui (Simulasi)");
-    }
-  };
+  useEffect(() => {
+    const loadProfile = async () => {
+      const storedUser = localStorage.getItem('bJournalUser');
+      if (!storedUser) {
+        setIsLoading(false);
+        return;
+      }
+
+      let userId: number | null = null;
+      let fallbackUsername = 'user';
+      try {
+        const parsedUser = JSON.parse(storedUser);
+        userId = parsedUser.UserID;
+        fallbackUsername = parsedUser.Username || fallbackUsername;
+      } catch {
+        setIsLoading(false);
+        return;
+      }
+
+      if (!userId) {
+        setIsLoading(false);
+        return;
+      }
+
+      const { data: userData } = await supabase
+        .from('user')
+        .select('UserID, Username, Email, FotoProfil')
+        .eq('UserID', userId)
+        .single();
+
+      setProfile({
+        userId,
+        username: userData?.Username || fallbackUsername,
+        email: userData?.Email || null
+      });
+      setAvatarUrl(userData?.FotoProfil || null);
+      setIsLoading(false);
+    };
+
+    loadProfile();
+  }, []);
 
   const handleLogout = () => {
-    showNotification("Proses Logout...");
-    // Simulate slight delay before redirect or actual logout handling
+    localStorage.removeItem('bJournalUser');
+    showNotification('Logout berhasil. Mengalihkan ke login...');
+    setTimeout(() => window.location.assign('/login'), 800);
+  };
+
+  const handleProfilePhotoChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const storedUser = localStorage.getItem('bJournalUser');
+    if (!storedUser) {
+      showNotification('Silakan login dulu.');
+      return;
+    }
+
+    let userId: number | null = null;
+    try {
+      userId = Number(JSON.parse(storedUser).UserID);
+    } catch {
+      showNotification('Sesi login tidak valid.');
+      return;
+    }
+
+    if (!userId || Number.isNaN(userId)) {
+      showNotification('Sesi login tidak valid.');
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `profile-${Date.now()}.${fileExt}`;
+      const filePath = `${userId}/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('photos')
+        .upload(filePath, file, { upsert: true });
+
+      if (uploadError) throw new Error(uploadError.message);
+
+      const { data: publicUrlData } = supabase.storage.from('photos').getPublicUrl(filePath);
+      const photoUrl = publicUrlData.publicUrl;
+
+      const { error: dbError } = await supabase
+        .from('user')
+        .update({ FotoProfil: photoUrl })
+        .eq('UserID', userId);
+
+      if (dbError) throw new Error(dbError.message);
+
+      setAvatarUrl(photoUrl);
+      showNotification('Foto profil berhasil diupdate!');
+    } catch (err: any) {
+      showNotification(`Gagal upload foto profil: ${err.message || 'Unknown error'}`);
+    } finally {
+      setIsUploading(false);
+      if (event.target) event.target.value = '';
+    }
   };
 
   return (
@@ -34,33 +137,41 @@ export default function ProfilePhoto() {
 
       {/* Profile Image Container */}
       <div className="relative group mb-8">
-        {/* Duct Tape Accents */}
-        <div className="absolute bg-zinc-500 opacity-80 shadow-[inset_0_0_5px_rgba(0,0,0,0.5)] w-24 h-6 -top-4 -left-6 rotate-[15deg] z-20"></div>
-        <div className="absolute bg-zinc-500 opacity-80 shadow-[inset_0_0_5px_rgba(0,0,0,0.5)] w-16 h-4 bottom-4 -right-8 rotate-[-12deg] z-20 hidden md:block"></div>
-        
         {/* Red Shadow Box */}
         <div className="absolute -right-4 top-4 w-full h-full bg-liverpool-red border-4 border-pitch-black"></div>
         
         {/* Photo Box */}
         <div className="relative border-4 border-pitch-black bg-white overflow-hidden shadow-[8px_8px_0_0_rgba(0,0,0,0.15)]">
-          <img 
-            alt="Main Profile Photo" 
-            className="w-[300px] h-[300px] md:w-[400px] md:h-[400px] aspect-square object-cover grayscale contrast-125 sepia-[0.2] -hue-rotate-15 saturate-150" 
-            src="https://lh3.googleusercontent.com/aida-public/AB6AXuAMgwFk0Iku_UM5oW_m3_OtUeQXBZqqiqxu7m9nqo5daX36A3QZYzpcJFbbCr5MORFUNKp22MWOzcSWufzuGGMAlgYvtAAzRgRkEDOf0WKn0GoElYleRiRgrFOzsQceEvzrIFBez6MkvbxsKPK9hQrEM-QQ5p69FQL6epKMfpiju7cvn8MCfggBu1Pqz3BdRYHLmRnIdgpXa-QadIpTC8wuGLz21i8uAnWmx9EANgGVrLqbyu7gXkA3lmwhh5LV-o4WFRrwBR07Ky0"
-          />
-          <button 
-            onClick={() => fileInputRef.current?.click()}
-            className="absolute bottom-0 right-0 bg-white border-t-4 border-l-4 border-pitch-black px-4 py-2 font-black text-xs uppercase hover:bg-pitch-black hover:text-white transition-colors tracking-tighter"
-          >
-            CHANGE.PHOTO
-          </button>
-          <input 
-            type="file" 
-            ref={fileInputRef} 
-            onChange={handleFileChange} 
-            className="hidden" 
+          {isLoading ? (
+            <div className="w-[300px] h-[300px] md:w-[400px] md:h-[400px] flex items-center justify-center bg-stadium-grey animate-pulse">
+              <span className="font-black uppercase text-tertiary">Loading...</span>
+            </div>
+          ) : avatarUrl ? (
+            <img 
+              alt="Main Profile Photo" 
+              className="w-[300px] h-[300px] md:w-[400px] md:h-[400px] aspect-square object-contain" 
+              src={avatarUrl}
+            />
+          ) : (
+            <div className="w-[300px] h-[300px] md:w-[400px] md:h-[400px] flex items-center justify-center bg-stadium-grey">
+              <span className="material-symbols-outlined text-6xl text-pitch-black">person</span>
+            </div>
+          )}
+          <input
+            ref={fileInputRef}
+            type="file"
             accept="image/*"
+            className="hidden"
+            onChange={handleProfilePhotoChange}
           />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isUploading}
+            className="absolute bottom-0 right-0 bg-white border-t-4 border-l-4 border-pitch-black px-4 py-2 font-black text-xs uppercase hover:bg-pitch-black hover:text-white transition-colors tracking-tighter disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {isUploading ? 'UPLOADING...' : 'UPLOAD.PHOTO'}
+          </button>
         </div>
       </div>
 
@@ -68,10 +179,14 @@ export default function ProfilePhoto() {
       <div className="text-center w-full border-t-4 border-pitch-black pt-6 relative">
         <div className="absolute bg-zinc-500 opacity-80 shadow-[inset_0_0_5px_rgba(0,0,0,0.5)] w-16 h-4 -top-2 right-10 rotate-[-8deg]"></div>
         
-        <h2 className="text-4xl md:text-5xl font-black tracking-tighter mb-2 text-pitch-black uppercase italic">User.Profile</h2>
+        <h2 className="text-4xl md:text-5xl font-black tracking-tighter mb-2 text-pitch-black uppercase italic">
+          {profile ? `@${profile.username}` : 'User.Profile'}
+        </h2>
         
         <div className="inline-block px-4 py-1 bg-stadium-grey border-2 border-pitch-black">
-          <span className="text-liverpool-red text-lg md:text-xl font-black tracking-[0.2em]">ACCESS_GRANTED.0492</span>
+          <span className="text-liverpool-red text-lg md:text-xl font-black tracking-[0.2em]">
+            {profile ? `ACCESS_GRANTED.${profile.userId}` : 'ACCESS_GRANTED'}
+          </span>
         </div>
         
         <div className="mt-8 relative group max-w-[200px] mx-auto">

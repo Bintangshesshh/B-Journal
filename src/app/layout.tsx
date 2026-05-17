@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Space_Grotesk } from "next/font/google";
 import "./globals.css";
+import ThemeSync from "@/components/ui/ThemeSync";
 
 const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
@@ -18,7 +19,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800;900&display=swap" rel="stylesheet"/>
         <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
@@ -26,6 +27,7 @@ export default function RootLayout({
       <body
         className={`${spaceGrotesk.variable} font-brutalist bg-surface-container-lowest text-on-surface antialiased flex flex-col md:flex-row relative overflow-x-hidden`}
       >
+        <ThemeSync />
         <svg className="absolute hidden" height="0" width="0">
           <filter id="ink-bleed">
             <feTurbulence baseFrequency="0.12" numOctaves="3" result="noise" type="fractalNoise" />

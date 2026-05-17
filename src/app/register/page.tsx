@@ -19,7 +19,6 @@ const RightFormPanel = () => {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [alamat, setAlamat] = useState("");
   
   // State untuk status loading dan pesan error
   const [loading, setLoading] = useState(false);
@@ -40,8 +39,7 @@ const RightFormPanel = () => {
           Username: username,
           Password: password, // Di production harus di-hash (misal bcrypt), tapi default UKK biasanya direct text atau md5
           Email: email,
-          NamaLengkap: fullName,
-          Alamat: alamat
+          NamaLengkap: fullName
         }
       ]);
 
@@ -85,15 +83,15 @@ const RightFormPanel = () => {
         <h1 className="text-4xl font-black uppercase tracking-tighter">B-JOURNAL</h1>
       </div>
 
-      <div className="w-full max-w-md bg-paper-texture border-[8px] border-pitch-black shadow-[12px_12px_0px_0px_#000000] p-8 relative distressed mt-24 md:mt-0">
+      <div className="w-full max-w-md bg-paper-texture border-[8px] border-pitch-black shadow-[12px_12px_0px_0px_#000000] p-5 md:p-6 relative distressed mt-16 md:mt-0">
         {/* Selotip hiasan */}
         <DuctTape className="-top-3 -right-5 w-20 h-6 transform rotate-12 !z-30" />
         <DuctTape className="-bottom-3 -right-5 w-20 h-6 transform -rotate-12 !z-30" />
 
         {/* Header Form */}
-        <div className="mb-8 border-b-4 border-pitch-black pb-4">
-          <h2 className="text-3xl font-black uppercase text-pitch-black tracking-tighter">REGISTER.SYS</h2>
-          <p className="text-sm font-bold text-gray-600 mt-2 uppercase tracking-widest">
+        <div className="mb-5 border-b-4 border-pitch-black pb-3">
+          <h2 className="text-2xl md:text-3xl font-black uppercase text-pitch-black tracking-tighter">REGISTER.SYS</h2>
+          <p className="text-xs md:text-sm font-bold text-gray-600 mt-2 uppercase tracking-widest">
             IDENTITY_REQ // NEW_ENTRY
           </p>
         </div>
@@ -106,7 +104,7 @@ const RightFormPanel = () => {
         )}
 
         {/* Form Register */}
-        <form onSubmit={handleRegister} className="space-y-6 flex flex-col">
+        <form onSubmit={handleRegister} className="space-y-3 md:space-y-4 flex flex-col">
           <BrutalistInput
             id="fullname"
             label="FULL NAME // CREATOR_ID"
@@ -149,20 +147,10 @@ const RightFormPanel = () => {
             onChange={(e) => setPassword(e.target.value)}
           />
 
-          <BrutalistInput
-            id="alamat"
-            label="ADDRESS // LOCATION_DATA"
-            type="text"
-            placeholder="STREET.OR.CITY"
-            tapeBottom="-bottom-2 -right-3 w-12 h-5 transform rotate-3"
-            value={alamat}
-            onChange={(e) => setAlamat(e.target.value)}
-          />
-
-          <div className="pt-4">
+          <div className="pt-3">
             <button
               disabled={loading}
-              className={`w-full text-pure-white border-[4px] border-pitch-black py-4 px-6 text-2xl font-black uppercase tracking-widest shadow-[8px_8px_0px_0px_#000000] transition-all duration-100 ease-in-out flex items-center justify-center gap-2 distressed ${loading ? 'bg-gray-600' : 'bg-liverpool-red hover:bg-pitch-black hover:translate-x-1 hover:translate-y-1 hover:shadow-none'}`}
+              className={`w-full text-pure-white border-[4px] border-pitch-black py-3 px-6 text-lg md:text-xl font-black uppercase tracking-widest shadow-[8px_8px_0px_0px_#000000] transition-all duration-100 ease-in-out flex items-center justify-center gap-2 distressed ${loading ? 'bg-gray-600' : 'bg-liverpool-red hover:bg-pitch-black hover:translate-x-1 hover:translate-y-1 hover:shadow-none'}`}
               type="submit"
             >
               {loading ? "PROCESSING..." : "REGISTER"}
@@ -171,7 +159,7 @@ const RightFormPanel = () => {
         </form>
 
         {/* Footer Link Kembali ke Login */}
-        <div className="mt-8 text-center border-t-4 border-pitch-black pt-6">
+        <div className="mt-4 text-center border-t-4 border-pitch-black pt-4">
           <Link href="/login" className="text-sm font-bold text-liverpool-red uppercase tracking-widest hover:bg-pitch-black hover:text-pure-white px-2 py-1 transition-colors distressed">
             ALREADY ENROLLED? // LOGIN.SYS
           </Link>

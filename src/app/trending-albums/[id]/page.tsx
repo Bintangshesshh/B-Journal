@@ -1,92 +1,70 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import Sidebar from '@/components/dashboard/Sidebar';
 import TopHeader from '@/components/dashboard/TopHeader';
 import MobileBottomNav from '@/components/dashboard/MobileBottomNav';
 import PhotoModal from '@/components/ui/PhotoModal';
+import { supabase } from '@/lib/supabase';
 
-const MOCK_ALBUM_POSTS = [
-  {
-    id: 101,
-    title: "Angle Zero",
-    desc: "Looking up. Symmetry in concrete.",
-    author: "@archi_grapher",
-    imgSrc: "https://lh3.googleusercontent.com/aida-public/AB6AXuChCCybsOJ-73oUva11cSyLRX0fp65zbcFihaAwHq908wwC5DToFxoHufwJEVTD2qbuuptRlbwoo4icXhXeqbU2HQLgxVULOGn9_HZ7vQfg8m9Xkv5z1HYYJYCPRjaIo4YDEP1Kyr2ADEZukju-wX34tpnc5bB2VExUGwNAMo0K3idlJLfkXdeTYy5NpjSzjeg6MxSTJOlL498pGh4_4LpYXYXhGLbX-AJdkVQOm4OIm-D5C8smmh1Oc_nObP16VvdvktUVWKcHTM4",
-    ductTape: null,
-    isLiked: false
-  },
-  {
-    id: 102,
-    title: "Shadow Walk",
-    desc: "Afternoon silhouettes.",
-    author: "@archi_grapher",
-    imgSrc: "https://lh3.googleusercontent.com/aida-public/AB6AXuAiTitIgzpC-VPz67WeVc_K57_h8RcrhXYZz1H_NmsbfS7Ah1Hrcgp7yXd3jPyCq0ZGK1bHXzSPOgFxWoe6LIbCN5Uv9zRDxl1LrR-3fiDKldn335O3WwWk6iP0kv2PCVNQ0KwX5SKu_UBGFIL7bEgawwasrxKKcFrG9gOLq2XCb1iA8YlSUpdEbD6GVOV6R6YDi1hGpvzU6K2srcQ2rBbwbf4YXPLo7SvYqveYJbQfZREJbyzRoh0JRG_W5lSVFgBzYnrtXyzOUNw",
-    ductTape: null,
-    isLiked: true
-  },
-  {
-    id: 103,
-    title: "Cracked Surface",
-    desc: "Macro textures of the city wall.",
-    author: "@archi_grapher",
-    imgSrc: "https://lh3.googleusercontent.com/aida-public/AB6AXuDn29W7exWvNGelAYNWdsiyX9YDkrwwNieuH8oxFn3AgFpk5viPYo02nJfy5dSxji-UkBKl-CLP0K988vJ7q3nqvpIRCZyHhYp0knBYQaZFv5x5rnbKYsfnmPU3hQ_Ne0lRZk1TgWPGkZKWTnTsytygWZAlzw8-fGQWFbYNXQNcWDObSSKgxDjWsCiyppBzBlqNDSmCyB9m6RvsNPVUVOGgk8ePT1R0lVTgM6Gwb7q9yY7G8iiLJCMrU-sDOAC53-7U52sl5040mzE",
-    ductTape: null,
-    isLiked: false
-  },
-  {
-    id: 104,
-    title: "Overpass",
-    desc: "Layered infrastructure.",
-    author: "@archi_grapher",
-    imgSrc: "https://lh3.googleusercontent.com/aida-public/AB6AXuCqVYBSJcztRnNg_kin5s9DguIhpLPN78Ef_3S7fEtUX9HvnRLGxyW15KtJ4so4_5ig2Vhk8QxHjcVm5KMMfopR2YficZ4cVZZy-lnt0W8e-wkxR_SuPW3xPlgpQr8dY3TkieWHclG_iyyFZmt7NUGMyMIBYICl-RYLhQgxdUbUhd2VjHU7c51J3KlNHD-16gvgGqGvX-Xqjb867xtUJEsHc7rgZ6clAbI8--y7nIchUBkaEqKKlaZf25nC-HK3u_zsQETyJmxDUKA",
-    ductTape: null,
-    isLiked: true
-  },
-  {
-    id: 105,
-    title: "Terminal",
-    desc: "Empty platform, 3 AM.",
-    author: "@archi_grapher",
-    imgSrc: "https://lh3.googleusercontent.com/aida-public/AB6AXuAjvphJkkl1_lmYdcbmF3ABrswCMN3y0P4GsApSaHq3n5rWGB920P-dTmZyC2GX9TU_V4DrznT-XBriqLEzWeHbJOC6s1HdXzwH08PTEPXLpOc_dmBeNdVWTTPkJlnibGacQQ-KfkHgtuxrYE2ElA0MnY36FO0-3heEEnXhns_WpNjSLVBv_hTiz7yK8dQ4Sqcn3xOw0N5gIOAhSAeu0GS7k2RD_ss_bdQ0hyvt2fTTQW-hw9CzX8LIXUYe37UFkmFO5etVm0Gv6rs",
-    ductTape: <div className="duct-tape w-20 h-4 top-1/2 -left-4 rotate-90 z-10 mix-blend-overlay"></div>,
-    isLiked: false
-  },
-  {
-    id: 106,
-    title: "Static Void",
-    desc: "Tuning into the silence.",
-    author: "@archi_grapher",
-    imgSrc: "https://lh3.googleusercontent.com/aida-public/AB6AXuAqamv30_5afsbVs3raXw13Mn_6sSp7b7fCLyZBujGt7rf80g5XsZvrgJ8-cjmd5NRFBUrInoWhrHTcM6CpYlhkLcLWs-ucwxFGTnmdGq1nrm7ywIFCwsPWbpTb7Nq4tiiP7Nik2LFLFgHbt-gwTuk2iq2nNo7dt2aQOof0XaRG-O0iSfhSYI9jKhjlW5JCNCh6tpVsCpuxIwnVa6Gv7ltB1oLM1Pxt0qkE-6QmjszVDuN1UQuVU00ii5ImOToWJ1PDTr5Uxh2dqik",
-    ductTape: null,
-    isLiked: true
-  },
-  {
-    id: 107,
-    title: "Urban Canyon",
-    desc: "Looking up through the towers.",
-    author: "@archi_grapher",
-    imgSrc: "https://lh3.googleusercontent.com/aida-public/AB6AXuChCCybsOJ-73oUva11cSyLRX0fp65zbcFihaAwHq908wwC5DToFxoHufwJEVTD2qbuuptRlbwoo4icXhXeqbU2HQLgxVULOGn9_HZ7vQfg8m9Xkv5z1HYYJYCPRjaIo4YDEP1Kyr2ADEZukju-wX34tpnc5bB2VExUGwNAMo0K3idlJLfkXdeTYy5NpjSzjeg6MxSTJOlL498pGh4_4LpYXYXhGLbX-AJdkVQOm4OIm-D5C8smmh1Oc_nObP16VvdvktUVWKcHTM4",
-    ductTape: null,
-    isLiked: false
-  },
-  {
-    id: 108,
-    title: "Neon Rain",
-    desc: "Reflections on the wet pavement.",
-    author: "@archi_grapher",
-    imgSrc: "https://lh3.googleusercontent.com/aida-public/AB6AXuA7MXHL_8VLADcn938eqG50LBj1vh7EryWC5dpvey5PBbqX0jgNHnMpwgTn9RimUaHyVgz0CjgoJwKcY89XjHqDxHY81mvKD_9u8lUzZt1EOd3itKk7p35lsV5Hs_z1ljdes1JbYFS3JeoSPOTqhw0A5dMVx9mk1SDR3VJNmEMsqhjQFKbjsQU4MCIhEgeZkOoTupameoPwDvCfnWkIaFX-7R0anwSOwyJEso7skrt_IGUeTY9AAnYAp4thBEhQcYv2zSt2CUxjvkI",
-    ductTape: null,
-    isLiked: true
-  }
-];
+type AlbumPhoto = {
+  FotoID: number;
+  JudulFoto: string;
+  DeskripsiFoto: string;
+  LokasiFile: string;
+};
 
-export default function AlbumDetailPage({ params }: { params: { id: string } }) {
-  const [selectedPost, setSelectedPost] = useState<typeof MOCK_ALBUM_POSTS[0] | null>(null);
+type AlbumDetail = {
+  id: number;
+  title: string;
+  author: string;
+  count: number;
+  photos: AlbumPhoto[];
+};
+
+export default function AlbumDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const [album, setAlbum] = useState<AlbumDetail | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [selectedPost, setSelectedPost] = useState<AlbumPhoto | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const handleOpenModal = (post: typeof MOCK_ALBUM_POSTS[0]) => {
+  const { id } = React.use(params);
+  const albumId = useMemo(() => Number(id), [id]);
+
+  useEffect(() => {
+    const fetchAlbum = async () => {
+      if (!albumId || Number.isNaN(albumId)) {
+        setIsLoading(false);
+        return;
+      }
+
+      setIsLoading(true);
+      const { data, error } = await supabase
+        .from('album')
+        .select('AlbumID, NamaAlbum, user(Username), foto(FotoID, JudulFoto, DeskripsiFoto, LokasiFile)')
+        .eq('AlbumID', albumId)
+        .single();
+
+      if (error || !data) {
+        setIsLoading(false);
+        return;
+      }
+
+      setAlbum({
+        id: data.AlbumID,
+        title: data.NamaAlbum,
+        author: data.user?.Username ? `@${data.user.Username}` : '@unknown',
+        count: data.foto?.length || 0,
+        photos: data.foto || []
+      });
+      setIsLoading(false);
+    };
+
+    fetchAlbum();
+  }, [albumId]);
+
+  const handleOpenModal = (post: AlbumPhoto) => {
     setSelectedPost(post);
     setIsModalOpen(true);
   };
@@ -120,11 +98,15 @@ export default function AlbumDetailPage({ params }: { params: { id: string } }) 
               </Link>
               <div className="flex flex-col md:flex-row justify-between md:items-end gap-4 w-full">
                 <div>
-                  <h1 className="text-4xl md:text-5xl font-black italic uppercase tracking-tighter text-pitch-black">
-                    Album: {params.id === '1' ? 'Brutal Forms' : `Album Vol. ${params.id}`}
+                  <h1 className="text-4xl md:text-5xl font-black italic upperca se tracking-tighter text-pitch-black">
+                    {album ? album.title : 'Album'}
                   </h1>
                   <p className="font-body-lg text-secondary uppercase font-bold mt-2 tracking-widest">
-                    By <span className="text-liverpool-red underline decoration-2 decoration-pitch-black underline-offset-4 cursor-pointer hover:bg-pitch-black hover:text-white transition-colors">@archi_grapher</span> • 24 Captures
+                    {album ? (
+                      <>By <span className="text-liverpool-red underline decoration-2 decoration-pitch-black underline-offset-4 cursor-pointer hover:bg-pitch-black hover:text-white transition-colors">{album.author}</span> • {album.count} Captures</>
+                    ) : (
+                      'Loading album...'
+                    )}
                   </p>
                 </div>
                 
@@ -142,28 +124,37 @@ export default function AlbumDetailPage({ params }: { params: { id: string } }) 
 
           {/* Full Grid Content (Mirip feed tapi melebar karena gak ada sidebar kanan) */}
           <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-6 space-y-6">
-            {MOCK_ALBUM_POSTS.map((post) => (
-              <article 
-                key={post.id} 
-                className="break-inside-avoid relative group border-4 border-pitch-black bg-stadium-grey shadow-[8px_8px_0_0_#000] transition-transform hover:-translate-y-1 hover:shadow-[12px_12px_0_0_#C8102E] cursor-pointer"
-                onClick={() => handleOpenModal(post)}
-              >
-                {post.ductTape}
-                <img 
-                  alt={post.title} 
-                  className="w-full h-auto object-cover grayscale group-hover:grayscale-0 halftone-effect border-b-4 border-pitch-black transition-all duration-300" 
-                  src={post.imgSrc} 
-                />
-                
-                <div className="absolute inset-0 bg-liverpool-red/80 mix-blend-multiply opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none"></div>
-                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-300 scale-90 group-hover:scale-100">
-                  <div className="bg-white border-4 border-pitch-black p-4 rotate-[-3deg] shadow-[4px_4px_0_0_#000] flex flex-col items-center">
-                    <span className="material-symbols-outlined text-pitch-black text-4xl mb-1">fullscreen</span>
-                    <span className="text-pitch-black font-label-md uppercase font-black tracking-widest">View Post</span>
+            {isLoading ? (
+              <div className="col-span-full py-20 text-center font-black text-2xl uppercase tracking-tighter text-pitch-black animate-pulse">
+                Loading photos...
+              </div>
+            ) : !album || album.photos.length === 0 ? (
+              <div className="col-span-full py-20 text-center font-black text-2xl uppercase tracking-tighter text-tertiary border-4 border-pitch-black border-dashed bg-zinc-200">
+                No photos in this album yet.
+              </div>
+            ) : (
+              album.photos.map((post) => (
+                <article 
+                  key={post.FotoID} 
+                  className="break-inside-avoid relative group border-4 border-pitch-black bg-stadium-grey shadow-[8px_8px_0_0_#000] transition-transform hover:-translate-y-1 hover:shadow-[12px_12px_0_0_#C8102E] cursor-pointer"
+                  onClick={() => handleOpenModal(post)}
+                >
+                  <img 
+                    alt={post.JudulFoto} 
+                    className="w-full h-auto object-cover grayscale group-hover:grayscale-0 halftone-effect border-b-4 border-pitch-black transition-all duration-300" 
+                    src={post.LokasiFile} 
+                  />
+                  
+                  <div className="absolute inset-0 bg-liverpool-red/80 mix-blend-multiply opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none"></div>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-300 scale-90 group-hover:scale-100">
+                    <div className="bg-white border-4 border-pitch-black p-4 rotate-[-3deg] shadow-[4px_4px_0_0_#000] flex flex-col items-center">
+                      <span className="material-symbols-outlined text-pitch-black text-4xl mb-1">fullscreen</span>
+                      <span className="text-pitch-black font-label-md uppercase font-black tracking-widest">View Post</span>
+                    </div>
                   </div>
-                </div>
-              </article>
-            ))}
+                </article>
+              ))
+            )}
           </div>
 
         </div>
@@ -173,7 +164,13 @@ export default function AlbumDetailPage({ params }: { params: { id: string } }) 
       <PhotoModal 
         isOpen={isModalOpen}
         onClose={handleCloseModal}
-        post={selectedPost}
+        post={selectedPost ? {
+          id: selectedPost.FotoID,
+          title: selectedPost.JudulFoto,
+          desc: selectedPost.DeskripsiFoto,
+          author: album?.author || '@unknown',
+          imgSrc: selectedPost.LokasiFile
+        } : null}
       />
 
       <MobileBottomNav />

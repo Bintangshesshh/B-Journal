@@ -6,6 +6,10 @@
   .material-symbols-outlined {
     font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
   }
+
+  .dark {
+    color-scheme: dark;
+  }
 }
 
 @layer utilities {
@@ -178,4 +182,16 @@
     background-size: 4px 4px;
     opacity: 0.3;
   }
+
+  /* Dark mode palette overrides */
+  .dark .bg-surface-container-lowest { background-color: #0f0f0f; }
+  .dark .bg-stadium-grey { background-color: #1a1a1a; }
+  .dark .bg-white { background-color: #121212; }
+  .dark .bg-paper-texture { background-color: #111111; }
+  .dark .text-pitch-black { color: #f5f5f5; }
+  .dark .text-on-surface { color: #e5e7eb; }
+  .dark .text-secondary { color: #cbd5e1; }
+  .dark .text-tertiary { color: #a3a3a3; }
+  .dark .border-pitch-black { border-color: #e5e7eb; }
+  .dark .border-black { border-color: #e5e7eb; }
 }

@@ -7,8 +7,6 @@ type Post = {
   desc: string;
   author: string;
   imgSrc: string;
-  ductTape: React.ReactNode;
-  isLiked: boolean;
 };
 
 interface PhotoModalProps {
@@ -22,6 +20,7 @@ export default function PhotoModal({ isOpen, onClose, post }: PhotoModalProps) {
   const [isLiked, setIsLiked] = useState(false);
   const [showHeart, setShowHeart] = useState(false);
   const [totalLikes, setTotalLikes] = useState(0);
+  const [notification, setNotification] = useState<{ show: boolean; message: string }>({ show: false, message: '' });
   
   // Real Database Comments
   const [comments, setComments] = useState<any[]>([]);
@@ -33,6 +32,11 @@ export default function PhotoModal({ isOpen, onClose, post }: PhotoModalProps) {
     const userStr = localStorage.getItem("bJournalUser");
     if (userStr) setCurrentUser(JSON.parse(userStr));
   }, []);
+
+  const showNotification = (message: string) => {
+    setNotification({ show: true, message });
+    setTimeout(() => setNotification({ show: false, message: '' }), 3000);
+  };
 
   useEffect(() => {
     if (post && isOpen) {
@@ -64,20 +68,25 @@ export default function PhotoModal({ isOpen, onClose, post }: PhotoModalProps) {
     setTotalLikes(count || 0);
 
     // Check if current user already liked this
-    if (currentUser) {
+    const currentUserId = currentUser ? Number(currentUser.UserID) : null;
+    if (currentUserId !== null && !Number.isNaN(currentUserId)) {
       const { data } = await supabase
         .from('likefoto')
         .select('*')
         .eq('FotoID', post.id)
-        .eq('UserID', currentUser.UserID)
+        .eq('UserID', currentUserId)
         .single();
-        
+
       setIsLiked(!!data);
     }
   };
 
   const handleLikeToggle = async () => {
-    if (!currentUser || !post) return alert("Please login first!");
+    const currentUserId = currentUser ? Number(currentUser.UserID) : null;
+    if (!currentUser || currentUserId === null || Number.isNaN(currentUserId) || !post) {
+      showNotification("Silakan login dulu.");
+      return;
+    }
 
     if (isLiked) {
       // Unlike
@@ -85,7 +94,7 @@ export default function PhotoModal({ isOpen, onClose, post }: PhotoModalProps) {
         .from('likefoto')
         .delete()
         .eq('FotoID', post.id)
-        .eq('UserID', currentUser.UserID);
+        .eq('UserID', currentUserId);
       setIsLiked(false);
       setTotalLikes(prev => Math.max(0, prev - 1));
     } else {
@@ -94,7 +103,7 @@ export default function PhotoModal({ isOpen, onClose, post }: PhotoModalProps) {
         .from('likefoto')
         .insert([{
           FotoID: post.id,
-          UserID: currentUser.UserID,
+          UserID: currentUserId,
           TanggalLike: new Date().toISOString().split('T')[0]
         }]);
       setIsLiked(true);
@@ -118,7 +127,7 @@ export default function PhotoModal({ isOpen, onClose, post }: PhotoModalProps) {
   const handlePostComment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newComment.trim() || !currentUser || !post) {
-      if (!currentUser) alert("Lu belum login mamenk.");
+      if (!currentUser) showNotification("Silakan login dulu.");
       return;
     }
     
@@ -157,6 +166,12 @@ export default function PhotoModal({ isOpen, onClose, post }: PhotoModalProps) {
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8">
+      {notification.show && (
+        <div className="fixed top-8 right-8 z-[120] bg-liverpool-red text-white p-4 font-bold border-4 border-pitch-black shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] uppercase tracking-widest animate-bounce">
+          <span className="material-symbols-outlined align-middle mr-2">info</span>
+          {notification.message}
+        </div>
+      )}
       {/* Backdrop */}
       <div 
         className="absolute inset-0 bg-pitch-black/80 backdrop-blur-sm pointer-events-auto"
@@ -176,8 +191,6 @@ export default function PhotoModal({ isOpen, onClose, post }: PhotoModalProps) {
 
         {/* Left Side: Photo */}
         <div className="relative w-full md:w-[60%] shrink-0 h-[40vh] md:h-full bg-stadium-grey flex items-center justify-center border-b-8 md:border-b-0 md:border-r-8 border-pitch-black overflow-hidden group">
-          {post.ductTape}
-          
           {/* Changed 'object-cover' to 'object-contain' so tall photos aren't cropped */}
           <img 
             src={post.imgSrc} 
@@ -206,7 +219,6 @@ export default function PhotoModal({ isOpen, onClose, post }: PhotoModalProps) {
           <div className="flex justify-between items-center p-4 border-b-4 border-pitch-black bg-stadium-grey">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full border-2 border-pitch-black overflow-hidden bg-white">
-                <span className="material-symbols-outlined w-full h-full flex items-center justify-center text-secondary">person</span>
               </div>
               <div>
                 <h3 className="font-label-lg font-black uppercase text-pitch-black leading-none">{post.author}</h3>

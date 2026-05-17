@@ -1,18 +1,51 @@
 "use client";
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
 
 export default function Sidebar() {
   const pathname = usePathname();
 
   const isActive = (path: string) => pathname === path;
+  const [user, setUser] = useState<{ username: string; avatarUrl: string | null } | null>(null);
+
+  useEffect(() => {
+    const loadUser = async () => {
+      const storedUser = localStorage.getItem('bJournalUser');
+      if (!storedUser) return;
+
+      let userId: number | null = null;
+      let fallbackUsername = 'user';
+      try {
+        const parsedUser = JSON.parse(storedUser);
+        userId = parsedUser.UserID;
+        fallbackUsername = parsedUser.Username || fallbackUsername;
+      } catch {
+        return;
+      }
+
+      if (!userId) return;
+
+      const { data: userData } = await supabase
+        .from('user')
+        .select('Username, FotoProfil')
+        .eq('UserID', userId)
+        .single();
+
+      setUser({
+        username: userData?.Username || fallbackUsername,
+        avatarUrl: userData?.FotoProfil || null
+      });
+    };
+
+    loadUser();
+  }, []);
 
   return (
     <aside className="hidden md:flex flex-col p-6 z-50 h-screen w-64 border-r-8 border-pitch-black fixed left-0 top-0 shadow-[10px_0px_0px_0px_rgba(0,0,0,0.1)] bg-grit bg-white">
       <div className="border-4 border-pitch-black p-4 mb-6 relative rotate-1 shadow-[4px_4px_0px_0px_rgba(200,16,46,1)] bg-white">
-        <div className="absolute -top-3 -right-6 w-24 h-8 bg-zinc-400/40 rotate-12 backdrop-blur-sm border-b border-white/20"></div>
         <h1 className="text-3xl font-black italic text-pitch-black tracking-tighter uppercase leading-none">B-Journal</h1>
         <p className="font-label-md text-label-md text-liverpool-red font-bold uppercase mt-1">Photography Journal</p>
       </div>
@@ -78,10 +111,16 @@ export default function Sidebar() {
           }`}
         >
           {isActive('/profile') && <div className="absolute -left-2 -top-4 w-12 h-6 bg-zinc-300/60 -rotate-45 z-10 transition-none pointer-events-none"></div>}
-          <div className="w-12 h-12 rounded-full border-2 border-pitch-black overflow-hidden flex-shrink-0 relative z-20">
-            <img alt="User Profile" className="w-full h-full object-cover grayscale" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAQ7uaXnrY5WCAMzY0VQ3eaXswcRMNvZt8Ss-jMQHpOaZNRh9lsCkAS-keSKD1pdIcuio2ZMqa9yu7vL2dRgYtksQXyMrpz5W7R8t04SL1EcyiN12CEdLCY9ReboIlKv8fxIVZnr1Qr0gzCzbXqI8Cgz21BUH4N4i16ftLOp6XyXURGZUCtE4KsMvYgQNNEDg4tKttDTwGIhLlPYjLY9gcdr_-Xcbs5oUE2kFHNIjJpTqmNsi1YspNLVpSh_jf1JJOv1-g1V3oVrQU" />
+          <div className="w-12 h-12 rounded-full border-2 border-pitch-black bg-white flex-shrink-0 relative z-20 overflow-hidden">
+            {user?.avatarUrl ? (
+              <img
+                src={user.avatarUrl}
+                alt={user.username}
+                className="w-full h-full object-contain"
+              />
+            ) : null}
           </div>
-          <span className="relative z-20">My Profile</span>
+          <span className="relative z-20">{user ? `@${user.username}` : 'My Profile'}</span>
         </Link>
       </div>
     </aside>

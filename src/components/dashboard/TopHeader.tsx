@@ -1,13 +1,36 @@
 "use client";
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 export default function TopHeader() {
   const pathname = usePathname();
+  const [hasUnread, setHasUnread] = useState(false);
   
   const isActive = (path: string) => pathname === path;
+
+  useEffect(() => {
+    const readUnreadFlag = () => {
+      const stored = localStorage.getItem('bJournalNotifHasUnread');
+      setHasUnread(stored === '1');
+    };
+
+    readUnreadFlag();
+
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === 'bJournalNotifHasUnread') readUnreadFlag();
+    };
+
+    const onLocalUpdate = () => readUnreadFlag();
+
+    window.addEventListener('storage', onStorage);
+    window.addEventListener('bjournal-notif-update', onLocalUpdate as EventListener);
+    return () => {
+      window.removeEventListener('storage', onStorage);
+      window.removeEventListener('bjournal-notif-update', onLocalUpdate as EventListener);
+    };
+  }, []);
 
   return (
     <>
@@ -23,7 +46,9 @@ export default function TopHeader() {
             }`}
           >
             <span className="material-symbols-outlined text-[20px]" style={isActive('/notifications') ? { fontVariationSettings: "'FILL' 1" } : {}}>notifications</span>
-            {!isActive('/notifications') && <div className="absolute -top-1 -right-1 w-3 h-3 bg-liverpool-red border-2 border-pitch-black animate-pulse"></div>}
+            {!isActive('/notifications') && hasUnread && (
+              <div className="absolute -top-1 -right-1 w-3 h-3 bg-liverpool-red border-2 border-pitch-black animate-pulse"></div>
+            )}
           </Link>
           <Link 
             href="/settings" 
@@ -53,7 +78,9 @@ export default function TopHeader() {
             }`}
           >
             <span className="material-symbols-outlined" style={isActive('/notifications') ? { fontVariationSettings: "'FILL' 1" } : {}}>notifications</span>
-            {!isActive('/notifications') && <div className="absolute -top-1 -right-1 w-4 h-4 bg-liverpool-red border-2 border-pitch-black animate-pulse"></div>}
+            {!isActive('/notifications') && hasUnread && (
+              <div className="absolute -top-1 -right-1 w-4 h-4 bg-liverpool-red border-2 border-pitch-black animate-pulse"></div>
+            )}
           </Link>
           <Link 
             href="/settings" 

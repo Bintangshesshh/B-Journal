@@ -2,16 +2,19 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 export default function UploadForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const albumIdParam = searchParams.get('albumId');
+  const MAX_FILES = 10;
   const [dragActive, setDragActive] = useState(false);
   const [notification, setNotification] = useState<{show: boolean, message: string}>({ show: false, message: '' });
   
   // State Form
-  const [file, setFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
+  const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [title, setTitle] = useState('');
   const [caption, setCaption] = useState('');
   const [selectedAlbum, setSelectedAlbum] = useState('');
@@ -37,6 +40,18 @@ export default function UploadForm() {
       setTimeout(() => router.push("/login"), 1500);
     }
   }, [router]);
+
+  useEffect(() => {
+    if (!albumIdParam) return;
+    setIsCreatingAlbum(false);
+    setSelectedAlbum(albumIdParam);
+  }, [albumIdParam]);
+
+  useEffect(() => {
+    return () => {
+      previewUrls.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [previewUrls]);
 
   const fetchAlbums = async (userId: string | number) => {
     const { data, error } = await supabase
@@ -65,27 +80,37 @@ export default function UploadForm() {
     e.stopPropagation();
     setDragActive(false);
     
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      const droppedFile = e.dataTransfer.files[0];
-      setFile(droppedFile);
-      setPreviewUrl(URL.createObjectURL(droppedFile));
-      showNotification(`File "${droppedFile.name}" siap diunggah!`);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const droppedFiles = Array.from(e.dataTransfer.files);
+      setSelectedFiles(droppedFiles);
     }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const selectedFile = e.target.files[0];
-      setFile(selectedFile);
-      setPreviewUrl(URL.createObjectURL(selectedFile));
-      showNotification(`File "${selectedFile.name}" siap diunggah!`);
+    if (e.target.files && e.target.files.length > 0) {
+      const selectedFiles = Array.from(e.target.files);
+      setSelectedFiles(selectedFiles);
+    }
+  };
+
+  const setSelectedFiles = (incomingFiles: File[]) => {
+    const limitedFiles = incomingFiles.slice(0, MAX_FILES);
+    previewUrls.forEach((url) => URL.revokeObjectURL(url));
+    setFiles(limitedFiles);
+    setPreviewUrls(limitedFiles.map((file) => URL.createObjectURL(file)));
+    if (incomingFiles.length > MAX_FILES) {
+      showNotification(`Maksimal ${MAX_FILES} file. Sisanya dilewati.`);
+    } else {
+      showNotification(`${limitedFiles.length} file siap diunggah!`);
     }
   };
 
   const handleSubmit = async () => {
     if (!currentUser) return showNotification("ERROR: Sesi login tidak valid!");
-    if (!file) return showNotification("ERROR: Belum ada foto yang dipilih!");
-    if (!title) return showNotification("ERROR: Title tidak boleh kosong!");
+    if (files.length === 0) return showNotification("ERROR: Belum ada foto yang dipilih!");
+    if (files.length === 1 && !title.trim()) return showNotification("ERROR: Title tidak boleh kosong!");
+    if (isCreatingAlbum && !newAlbumName.trim()) return showNotification("ERROR: Nama album baru wajib diisi!");
+    if (!selectedAlbum && !isCreatingAlbum) return showNotification("ERROR: Pilih atau buat album terlebih dahulu!");
 
     setLoading(true);
 
@@ -109,35 +134,43 @@ export default function UploadForm() {
         finalAlbumId = newAlbum.AlbumID;
       }
 
-      // 2. Upload File Foto ke Supabase Storage (Bucket "photos")
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2,9)}.${fileExt}`;
-      const filePath = `${currentUser.UserID}/${fileName}`;
+      const baseTitle = title.trim();
+      const padLength = Math.max(2, String(files.length).length);
 
-      const { error: uploadError } = await supabase.storage
-        .from('photos')
-        .upload(filePath, file);
+      for (let index = 0; index < files.length; index += 1) {
+        const file = files[index];
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(2,9)}.${fileExt}`;
+        const filePath = `${currentUser.UserID}/${fileName}`;
+        const autoTitle = file.name.replace(/\.[^/.]+$/, '') || 'Untitled';
+        const sequence = String(index + 1).padStart(padLength, '0');
+        const finalTitle = baseTitle
+          ? (files.length > 1 ? `${baseTitle} (${sequence})` : baseTitle)
+          : autoTitle;
 
-      if (uploadError) throw new Error("Gagal upload foto ke storage: " + uploadError.message);
+        const { error: uploadError } = await supabase.storage
+          .from('photos')
+          .upload(filePath, file);
 
-      // Ambil Public URL dari foto yang baru di-upload
-      const { data: publicUrlData } = supabase.storage.from('photos').getPublicUrl(filePath);
-      const photoUrl = publicUrlData.publicUrl;
+        if (uploadError) throw new Error("Gagal upload foto ke storage: " + uploadError.message);
 
-      // 3. Masukin data ke tabel foto
-      const { error: dbError } = await supabase.from('foto').insert([{
-        JudulFoto: title,
-        DeskripsiFoto: caption,
-        TanggalUnggah: new Date().toISOString().split('T')[0],
-        LokasiFile: photoUrl,
-        AlbumID: finalAlbumId ? finalAlbumId : null,
-        UserID: currentUser.UserID
-      }]);
+        const { data: publicUrlData } = supabase.storage.from('photos').getPublicUrl(filePath);
+        const photoUrl = publicUrlData.publicUrl;
 
-      if (dbError) throw new Error("Gagal simpan db: " + dbError.message);
+        const { error: dbError } = await supabase.from('foto').insert([{
+          JudulFoto: finalTitle,
+          DeskripsiFoto: caption,
+          TanggalUnggah: new Date().toISOString().split('T')[0],
+          LokasiFile: photoUrl,
+          AlbumID: finalAlbumId ? finalAlbumId : null,
+          UserID: currentUser.UserID
+        }]);
+
+        if (dbError) throw new Error("Gagal simpan db: " + dbError.message);
+      }
 
       // Sukses
-      showNotification("SUCCESS: Foto berhasil dipublish!");
+      showNotification(`SUCCESS: ${files.length} foto berhasil dipublish!`);
       
       // Tunggu bentar trus pindah ke home / halaman utama
       setTimeout(() => {
@@ -185,17 +218,26 @@ export default function UploadForm() {
             if(input) input.click();
           }}
         >
-          <input type="file" id="file-upload" className="hidden" accept="image/*" onChange={handleFileChange} />
+          <input type="file" id="file-upload" className="hidden" accept="image/*" multiple onChange={handleFileChange} />
           
-          {previewUrl ? (
-            <img src={previewUrl} alt="Preview" className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all halftone-effect" />
+          {previewUrls.length > 0 ? (
+            <div className="w-full h-full grid grid-cols-2 sm:grid-cols-3 gap-2 p-2 overflow-auto">
+              {previewUrls.map((url, index) => (
+                <div key={`${url}-${index}`} className="w-full aspect-square border-2 border-pitch-black overflow-hidden">
+                  <img src={url} alt={`Preview ${index + 1}`} className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all halftone-effect" />
+                </div>
+              ))}
+              <div className="absolute bottom-2 right-2 bg-white text-pitch-black border-2 border-pitch-black px-2 py-0.5 text-[10px] font-black uppercase">
+                {previewUrls.length} files
+              </div>
+            </div>
           ) : (
             <>
               <span className={`material-symbols-outlined text-6xl transition-all duration-300 ${dragActive ? 'text-liverpool-red scale-110' : 'text-pitch-black group-hover:text-liverpool-red group-hover:scale-110'}`}>add</span>
               
               <p className={`font-label-lg font-bold uppercase text-center max-w-xs leading-relaxed transition-colors ${dragActive ? 'text-liverpool-red' : 'text-pitch-black group-hover:text-liverpool-red'}`}>
                 Drag and drop your photos here<br/>
-                <span className="text-zinc-500 lowercase font-body-sm font-normal">or click to browse</span>
+                <span className="text-zinc-500 lowercase font-body-sm font-normal">or click to browse (max 10)</span>
               </p>
             </>
           )}
@@ -224,7 +266,7 @@ export default function UploadForm() {
           
           {/* Album Selection */}
           <div className="flex flex-col gap-2">
-            <label className="font-label-lg font-bold uppercase text-pitch-black" htmlFor="album">Select Album</label>
+            <label className="font-label-lg font-bold uppercase text-pitch-black" htmlFor="album">Select Album (Required)</label>
             <div className="relative">
               <select 
                 value={isCreatingAlbum ? 'CREATE_NEW' : selectedAlbum}
@@ -241,7 +283,7 @@ export default function UploadForm() {
                 className="w-full border-2 border-pitch-black bg-white p-4 font-body-md text-pitch-black appearance-none focus:outline-none focus:border-liverpool-red focus:shadow-[4px_4px_0px_0px_rgba(200,16,46,1)] transition-all uppercase rounded-none cursor-pointer" 
                 id="album"
               >
-                <option value="">-- CHOOSE AN ALBUM (OPTIONAL) --</option>
+                <option value="">-- CHOOSE AN ALBUM --</option>
                 {albums.map((al) => (
                   <option key={al.AlbumID} value={al.AlbumID}>{al.NamaAlbum}</option>
                 ))}

@@ -1,25 +1,32 @@
 "use client";
 
-import React, { useState } from 'react';
-import Sidebar from '@/components/dashboard/Sidebar';
+import React from 'react';
+import Link from 'next/link';
 import MobileBottomNav from '@/components/dashboard/MobileBottomNav';
 import DiscoveryFeed from '@/components/discovery/DiscoveryFeed';
 
 export default function DiscoveryPage() {
-  const [isZenMode, setIsZenMode] = useState(false);
-
   return (
-    <div className="w-full relative flex h-screen overflow-hidden bg-stadium-grey text-pitch-black bg-grit">
-      {/* 1. Sidebar Kiri (Desktop) */}
-      {!isZenMode && <Sidebar />}
-
-      {/* Main Content : Immersive Feed */}
-      <main className={`${isZenMode ? 'ml-0' : 'ml-0 md:ml-64'} transition-all duration-300 w-full h-screen overflow-hidden bg-black snap-container relative pt-0`}>
-        <DiscoveryFeed isZenMode={isZenMode} toggleZenMode={() => setIsZenMode(!isZenMode)} />
+    <div className="w-full relative flex h-screen overflow-hidden bg-pitch-black">
+      <main className="w-full h-screen snap-container relative">
+        <DiscoveryFeed />
       </main>
 
-      {/* Navigasi Bawah (Mobile) */}
-      {!isZenMode && <MobileBottomNav />}
+      <div className="absolute top-0 left-0 w-full z-30 p-4 md:p-6 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Link
+            href="/"
+            className="bg-white text-pitch-black border-2 border-pitch-black px-3 py-1 font-black uppercase tracking-wider hover:bg-liverpool-red hover:text-white transition-colors"
+          >
+            Back Home
+          </Link>
+          <div className="bg-white text-pitch-black border-2 border-pitch-black px-3 py-1 font-black uppercase tracking-wider hidden sm:block">
+            Discovery
+          </div>
+        </div>
+      </div>
+
+      <MobileBottomNav />
     </div>
   );
 }

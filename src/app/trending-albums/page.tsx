@@ -1,56 +1,94 @@
-import React from 'react';
+"use client";
+
+import React, { useEffect, useMemo, useState } from 'react';
 import Sidebar from '@/components/dashboard/Sidebar';
 import TopHeader from '@/components/dashboard/TopHeader';
 import MobileBottomNav from '@/components/dashboard/MobileBottomNav';
 import Link from 'next/link';
+import { supabase } from '@/lib/supabase';
 
-// Expanded mock data based on TrendingAlbums widget
-const TRENDING_ALBUMS_FULL = [
-  {
-    id: 1,
-    title: "Brutal Forms",
-    count: "24 Captures",
-    author: "@archi_grapher",
-    imgSrc: "https://lh3.googleusercontent.com/aida-public/AB6AXuChCCybsOJ-73oUva11cSyLRX0fp65zbcFihaAwHq908wwC5DToFxoHufwJEVTD2qbuuptRlbwoo4icXhXeqbU2HQLgxVULOGn9_HZ7vQfg8m9Xkv5z1HYYJYCPRjaIo4YDEP1Kyr2ADEZukju-wX34tpnc5bB2VExUGwNAMo0K3idlJLfkXdeTYy5NpjSzjeg6MxSTJOlL498pGh4_4LpYXYXhGLbX-AJdkVQOm4OIm-D5C8smmh1Oc_nObP16VvdvktUVWKcHTM4"
-  },
-  {
-    id: 2,
-    title: "Shadow Play",
-    count: "18 Captures",
-    author: "@night_walker",
-    imgSrc: "https://lh3.googleusercontent.com/aida-public/AB6AXuAiTitIgzpC-VPz67WeVc_K57_h8RcrhXYZz1H_NmsbfS7Ah1Hrcgp7yXd3jPyCq0ZGK1bHXzSPOgFxWoe6LIbCN5Uv9zRDxl1LrR-3fiDKldn335O3WwWk6iP0kv2PCVNQ0KwX5SKu_UBGFIL7bEgawwasrxKKcFrG9gOLq2XCb1iA8YlSUpdEbD6GVOV6R6YDi1hGpvzU6K2srcQ2rBbwbf4YXPLo7SvYqveYJbQfZREJbyzRoh0JRG_W5lSVFgBzYnrtXyzOUNw"
-  },
-  {
-    id: 3,
-    title: "Street Textures",
-    count: "42 Captures",
-    author: "@urban_echo",
-    imgSrc: "https://lh3.googleusercontent.com/aida-public/AB6AXuDn29W7exWvNGelAYNWdsiyX9YDkrwwNieuH8oxFn3AgFpk5viPYo02nJfy5dSxji-UkBKl-CLP0K988vJ7q3nqvpIRCZyHhYp0knBYQaZFv5x5rnbKYsfnmPU3hQ_Ne0lRZk1TgWPGkZKWTnTsytygWZAlzw8-fGQWFbYNXQNcWDObSSKgxDjWsCiyppBzBlqNDSmCyB9m6RvsNPVUVOGgk8ePT1R0lVTgM6Gwb7q9yY7G8iiLJCMrU-sDOAC53-7U52sl5040mzE"
-  },
-  {
-    id: 4,
-    title: "Film Grain 35",
-    count: "36 Captures",
-    author: "@analog_dream",
-    imgSrc: "https://lh3.googleusercontent.com/aida-public/AB6AXuAjvphJkkl1_lmYdcbmF3ABrswCMN3y0P4GsApSaHq3n5rWGB920P-dTmZyC2GX9TU_V4DrznT-XBriqLEzWeHbJOC6s1HdXzwH08PTEPXLpOc_dmBeNdVWTTPkJlnibGacQQ-KfkHgtuxrYE2ElA0MnY36FO0-3heEEnXhns_WpNjSLVBv_hTiz7yK8dQ4Sqcn3xOw0N5gIOAhSAeu0GS7k2RD_ss_bdQ0hyvt2fTTQW-hw9CzX8LIXUYe37UFkmFO5etVm0Gv6rs"
-  },
-  {
-    id: 5,
-    title: "Red Light Dist",
-    count: "12 Captures",
-    author: "@neon_demon",
-    imgSrc: "https://lh3.googleusercontent.com/aida-public/AB6AXuA7MXHL_8VLADcn938eqG50LBj1vh7EryWC5dpvey5PBbqX0jgNHnMpwgTn9RimUaHyVgz0CjgoJwKcY89XjHqDxHY81mvKD_9u8lUzZt1EOd3itKk7p35lsV5Hs_z1ljdes1JbYFS3JeoSPOTqhw0A5dMVx9mk1SDR3VJNmEMsqhjQFKbjsQU4MCIhEgeZkOoTupameoPwDvCfnWkIaFX-7R0anwSOwyJEso7skrt_IGUeTY9AAnYAp4thBEhQcYv2zSt2CUxjvkI"
-  },
-  {
-    id: 6,
-    title: "Studio Chaos",
-    count: "50 Captures",
-    author: "@flash_rat",
-    imgSrc: "https://lh3.googleusercontent.com/aida-public/AB6AXuAqamv30_5afsbVs3raXw13Mn_6sSp7b7fCLyZBujGt7rf80g5XsZvrgJ8-cjmd5NRFBUrInoWhrHTcM6CpYlhkLcLWs-ucwxFGTnmdGq1nrm7ywIFCwsPWbpTb7Nq4tiiP7Nik2LFLFgHbt-gwTuk2iq2nNo7dt2aQOof0XaRG-O0iSfhSYI9jKhjlW5JCNCh6tpVsCpuxIwnVa6Gv7ltB1oLM1Pxt0qkE-6QmjszVDuN1UQuVU00ii5ImOToWJ1PDTr5Uxh2dqik"
-  }
-];
+type TrendingAlbum = {
+  id: number;
+  title: string;
+  interactions: number;
+  author: string;
+  imgSrc: string | null;
+  updatedAt: string | null;
+};
 
 export default function TrendingAlbumsPage() {
+  const [albums, setAlbums] = useState<TrendingAlbum[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const DEFAULT_IMAGE = "https://lh3.googleusercontent.com/aida-public/AB6AXuCpcFlZgPPYv4RXQx9RvyxQovAv_H8nTrJMWFk8amvtB0u9Hgr18YcSxmhoR4tNhqxrILKTnItKO1fG2LNpAlTb2Ga0UpputArMu-uGytY6eUZDPrHLGOrg1LuQ4eV_OShMK2dvaNdOi_jgr41PBZ1bPjBTkGwdTTERs8tSyK54gSAcQVf9JGpycdjw_vYLRmoqaLcscrG9jTHMD8zpSL4Tqof83HKJyVHiwMniwb_bcSEOk5MR9S4ZAc5SUCtK9RuUohcV1rgSOls";
+
+  useEffect(() => {
+    const fetchAlbums = async () => {
+      setIsLoading(true);
+      const { data, error } = await supabase
+        .from('album')
+        .select('AlbumID, NamaAlbum, TanggalDibuat, user(Username), foto(FotoID, LokasiFile)');
+
+      if (error || !data) {
+        setIsLoading(false);
+        return;
+      }
+
+      const photoIdToAlbumId = new Map<number, number>();
+      const photoIds: number[] = [];
+
+      data.forEach((item: any) => {
+        (item.foto || []).forEach((photo: any) => {
+          if (photo?.FotoID) {
+            photoIdToAlbumId.set(photo.FotoID, item.AlbumID);
+            photoIds.push(photo.FotoID);
+          }
+        });
+      });
+
+      const interactionsByAlbum: Record<number, number> = {};
+
+      if (photoIds.length > 0) {
+        const [likeResult, commentResult] = await Promise.all([
+          supabase.from('likefoto').select('FotoID').in('FotoID', photoIds),
+          supabase.from('komentarfoto').select('FotoID').in('FotoID', photoIds)
+        ]);
+
+        (likeResult.data || []).forEach((row: any) => {
+          const albumId = photoIdToAlbumId.get(row.FotoID);
+          if (!albumId) return;
+          interactionsByAlbum[albumId] = (interactionsByAlbum[albumId] || 0) + 1;
+        });
+
+        (commentResult.data || []).forEach((row: any) => {
+          const albumId = photoIdToAlbumId.get(row.FotoID);
+          if (!albumId) return;
+          interactionsByAlbum[albumId] = (interactionsByAlbum[albumId] || 0) + 1;
+        });
+      }
+
+      const normalized = data.map((item: any) => ({
+        id: item.AlbumID,
+        title: item.NamaAlbum,
+        interactions: interactionsByAlbum[item.AlbumID] || 0,
+        author: item.user?.Username ? `@${item.user.Username}` : '@unknown',
+        imgSrc: item.foto && item.foto.length > 0 ? item.foto[0].LokasiFile : null,
+        updatedAt: item.TanggalDibuat || null
+      }));
+
+      const sorted = normalized.sort((a, b) => b.interactions - a.interactions);
+      setAlbums(sorted);
+      setIsLoading(false);
+    };
+
+    fetchAlbums();
+  }, []);
+
+  const updatedLabel = useMemo(() => {
+    const dateValue = albums[0]?.updatedAt ? new Date(albums[0].updatedAt) : new Date();
+    return dateValue.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: '2-digit' });
+  }, [albums]);
+
   return (
     <div className="w-full relative flex h-screen overflow-y-auto">
       {/* 1. Sidebar Kiri (Desktop) */}
@@ -79,40 +117,49 @@ export default function TrendingAlbumsPage() {
               <p className="font-body-lg text-liverpool-red font-bold uppercase tracking-widest mt-2">Top curated collections from the community</p>
             </div>
             <div className="bg-stadium-grey border-4 border-pitch-black px-4 py-2 shadow-[4px_4px_0_0_#C8102E] rotate-1">
-              <span className="font-label-lg font-black uppercase text-pitch-black tracking-tighter">Updated: JUST NOW</span>
+              <span className="font-label-lg font-black uppercase text-pitch-black tracking-tighter">Updated: {updatedLabel}</span>
             </div>
           </div>
 
           {/* Grid Layout Brutalist */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-            {TRENDING_ALBUMS_FULL.map((album, idx) => (
-              <Link 
-                href={`/trending-albums/${album.id}`}
-                key={album.id} 
-                className={`group cursor-pointer bg-stadium-grey border-4 border-pitch-black shadow-[6px_6px_0_0_#C8102E] transition-all hover:translate-x-1 hover:translate-y-1 hover:shadow-none hover:border-liverpool-red flex flex-col block ${idx % 2 !== 0 ? 'md:translate-y-8' : ''}`}
-              >
-                {/* Image Cover */}
-                <div className="w-full aspect-square border-b-4 border-pitch-black overflow-hidden relative grayscale group-hover:grayscale-0 transition-all duration-500">
-                  <div className="absolute inset-0 bg-liverpool-red mix-blend-multiply opacity-0 group-hover:opacity-60 transition-opacity z-10 pointer-events-none"></div>
-                  {/* Decorative Tape Element randomly */}
-                  {idx % 3 === 0 && <div className="absolute w-20 h-6 bg-zinc-300 mix-blend-difference -top-2 left-4 rotate-12 z-20"></div>}
-                  <img alt={album.title} className="w-full h-full object-cover halftone-effect" src={album.imgSrc} />
-                  
-                  {/* Floating count badge */}
-                  <div className="absolute bottom-4 right-4 bg-pitch-black text-white font-label-md font-bold px-3 py-1 border-2 border-white z-20 uppercase rotate-[-2deg]">
-                    {album.count}
+            {isLoading ? (
+              <div className="col-span-full py-20 text-center font-black text-2xl uppercase tracking-tighter text-pitch-black animate-pulse">
+                Loading albums...
+              </div>
+            ) : albums.length === 0 ? (
+              <div className="col-span-full py-20 text-center font-black text-2xl uppercase tracking-tighter text-tertiary border-4 border-pitch-black border-dashed bg-zinc-200">
+                No albums yet.
+              </div>
+            ) : (
+              albums.map((album, idx) => (
+                <Link 
+                  href={`/trending-albums/${album.id}`}
+                  key={album.id} 
+                  className={`group cursor-pointer bg-stadium-grey border-4 border-pitch-black shadow-[6px_6px_0_0_#C8102E] transition-all hover:translate-x-1 hover:translate-y-1 hover:shadow-none hover:border-liverpool-red flex flex-col block ${idx % 2 !== 0 ? 'md:translate-y-8' : ''}`}
+                >
+                  {/* Image Cover */}
+                  <div className="w-full aspect-square border-b-4 border-pitch-black overflow-hidden relative grayscale group-hover:grayscale-0 transition-all duration-500">
+                    <div className="absolute inset-0 bg-liverpool-red mix-blend-multiply opacity-0 group-hover:opacity-60 transition-opacity z-10 pointer-events-none"></div>
+                    {idx % 3 === 0 && <div className="absolute w-20 h-6 bg-zinc-300 mix-blend-difference -top-2 left-4 rotate-12 z-20"></div>}
+                    <img alt={album.title} className="w-full h-full object-cover halftone-effect" src={album.imgSrc || DEFAULT_IMAGE} />
+                    
+                    {/* Floating count badge */}
+                    <div className="absolute bottom-4 right-4 bg-pitch-black text-white font-label-md font-bold px-3 py-1 border-2 border-white z-20 uppercase rotate-[-2deg]">
+                      {album.interactions} Interactions
+                    </div>
                   </div>
-                </div>
 
-                {/* Details */}
-                <div className="p-4 bg-surface-container-lowest flex-1">
-                  <h2 className="font-headline-sm uppercase text-pitch-black group-hover:text-liverpool-red tracking-tight truncate">
-                    {album.title}
-                  </h2>
-                  <p className="font-label-md text-tertiary mt-1 uppercase font-bold">BY {album.author}</p>
-                </div>
-              </Link>
-            ))}
+                  {/* Details */}
+                  <div className="p-4 bg-surface-container-lowest flex-1">
+                    <h2 className="font-headline-sm uppercase text-pitch-black group-hover:text-liverpool-red tracking-tight truncate">
+                      {album.title}
+                    </h2>
+                    <p className="font-label-md text-tertiary mt-1 uppercase font-bold">BY {album.author}</p>
+                  </div>
+                </Link>
+              ))
+            )}
           </div>
 
         </div>

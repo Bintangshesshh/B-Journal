@@ -1,46 +1,78 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import PhotoModal from '../ui/PhotoModal';
 
+type PhotoRow = {
+  FotoID: number;
+  JudulFoto: string;
+  DeskripsiFoto: string;
+  TanggalUnggah: string;
+  LokasiFile: string;
+  user: { Username: string } | null;
+  likeCount: number;
+};
+
+type ModalPost = {
+  id: number;
+  title: string;
+  desc: string;
+  author: string;
+  imgSrc: string;
+};
+
 export default function FeedList() {
   const [activeTab, setActiveTab] = useState<'latest' | 'trending'>('latest');
-  const [posts, setPosts] = useState<any[]>([]);
+  const [photos, setPhotos] = useState<PhotoRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedPost, setSelectedPost] = useState<any | null>(null);
+  const [selectedPost, setSelectedPost] = useState<ModalPost | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
-    fetchPosts();
+    fetchPhotos();
   }, []);
 
-  const fetchPosts = async () => {
+  const fetchPhotos = async () => {
     setLoading(true);
-    // Mengambil data dari tabel 'foto' JOIN dengan tabel 'user' untuk mendapatkan Username pembuatnya
-    const { data, error } = await supabase
+    const { data: photoRows, error } = await supabase
       .from('foto')
-      .select('*, user(Username)')
+      .select('FotoID, JudulFoto, DeskripsiFoto, TanggalUnggah, LokasiFile, user(Username)')
       .order('TanggalUnggah', { ascending: false });
 
-    if (!error && data) {
-      setPosts(data);
+    if (error || !photoRows) {
+      setLoading(false);
+      return;
     }
+
+    const { data: likeRows } = await supabase
+      .from('likefoto')
+      .select('FotoID');
+
+    const likeCountByPhoto: Record<number, number> = {};
+    (likeRows || []).forEach((row: { FotoID: number }) => {
+      likeCountByPhoto[row.FotoID] = (likeCountByPhoto[row.FotoID] || 0) + 1;
+    });
+
+    const normalized = photoRows.map((photo: any) => ({
+      ...photo,
+      likeCount: likeCountByPhoto[photo.FotoID] || 0
+    }));
+
+    setPhotos(normalized);
     setLoading(false);
   };
 
-  const handleOpenModal = (post: any) => {
-    // Mapping data asli database ke object yang dimengerti oleh PhotoModal (jika diperlukan)
-    // Walaupun lebih baik PhotoModal di update juga nanti, kita pass saja datanya langsung.
-    setSelectedPost({
-      id: post.FotoID,
-      title: post.JudulFoto,
-      desc: post.DeskripsiFoto,
-      author: post.user?.Username ? `@${post.user.Username}` : '@unknown_artist',
-      imgSrc: post.LokasiFile,
-      isLiked: false, // Akan dihandle di tahap 3
-      stats: { likes: 0, comments: 0 }
-    });
+  const toModalPost = (photo: PhotoRow): ModalPost => ({
+    id: photo.FotoID,
+    title: photo.JudulFoto,
+    desc: photo.DeskripsiFoto,
+    author: photo.user?.Username ? `@${photo.user.Username}` : '@unknown',
+    imgSrc: photo.LokasiFile
+  });
+
+  const handleOpenModal = (photo: PhotoRow) => {
+    setSelectedPost(toModalPost(photo));
     setIsModalOpen(true);
   };
 
@@ -48,6 +80,11 @@ export default function FeedList() {
     setIsModalOpen(false);
     setSelectedPost(null);
   };
+
+  const visiblePhotos = useMemo(() => {
+    if (activeTab === 'latest') return photos;
+    return [...photos].sort((a, b) => b.likeCount - a.likeCount);
+  }, [activeTab, photos]);
 
   return (
     <div className="flex-1">
@@ -62,9 +99,6 @@ export default function FeedList() {
                 : 'bg-surface-container-lowest text-pitch-black hover:bg-stadium-grey'
             }`}
           >
-            {activeTab === 'latest' && (
-              <div className="duct-tape w-12 h-4 -top-2 -left-3 -rotate-12 absolute z-10"></div>
-            )}
             Latest
           </button>
           <button 
@@ -75,9 +109,6 @@ export default function FeedList() {
                 : 'bg-surface-container-lowest text-pitch-black hover:bg-stadium-grey'
             }`}
           >
-            {activeTab === 'trending' && (
-              <div className="duct-tape w-12 h-4 -top-2 -right-3 rotate-12 absolute z-10"></div>
-            )}
             Trending
           </button>
         </div>
@@ -89,16 +120,13 @@ export default function FeedList() {
           <div className="col-span-full py-12 flex justify-center items-center">
             <p className="font-headline-sm uppercase animate-pulse">Scanning the matrix...</p>
           </div>
-        ) : posts.length === 0 ? (
+        ) : photos.length === 0 ? (
           <div className="col-span-full py-12 flex justify-center items-center border-4 border-pitch-black border-dashed bg-zinc-200">
             <p className="font-label-lg font-bold uppercase text-zinc-500">NO TRANSMISSION DETECTED.</p>
           </div>
         ) : (
-          (activeTab === 'latest' ? posts : [...posts].reverse()).map((post, idx) => (
+          visiblePhotos.map((post) => (
             <article key={post.FotoID} className="break-inside-avoid relative group border-4 border-pitch-black bg-stadium-grey shadow-[8px_8px_0_0_#C8102E] transition-transform hover:-translate-y-1 hover:shadow-[12px_12px_0_0_#C8102E] overflow-hidden">
-              {/* Tambahkan Duct Tape Random untuk nilai estetika Brutalist */}
-              {idx % 3 === 0 && <div className="duct-tape w-12 h-4 top-2 left-2 -rotate-12 z-10"></div>}
-              {idx % 5 === 0 && <div className="duct-tape w-20 h-6 bottom-16 right-0 rotate-45 z-10 mix-blend-difference"></div>}
               
               <div className="relative overflow-hidden border-b-4 border-pitch-black">
                 <img 
@@ -121,16 +149,11 @@ export default function FeedList() {
                   <span className="font-label-md text-liverpool-red font-bold">
                     {post.user?.Username ? `@${post.user.Username}` : '@unknown'}
                   </span>
-                  <div className="flex gap-3 text-pitch-black">
-                    <span 
-                      className="material-symbols-outlined hover:scale-110 cursor-pointer transition-transform" 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        // handle toggle like
-                      }}
-                    >
-                      favorite
-                    </span>
+                  <div className="flex gap-3 text-pitch-black items-center">
+                    <div className="flex items-center gap-1">
+                      <span className="material-symbols-outlined">favorite</span>
+                      <span className="font-label-sm font-bold">{post.likeCount}</span>
+                    </div>
                     <span 
                       className="material-symbols-outlined hover:scale-110 cursor-pointer transition-transform hover:text-liverpool-red"
                       onClick={() => handleOpenModal(post)}
