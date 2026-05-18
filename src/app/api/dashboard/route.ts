@@ -5,7 +5,6 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// POST /api/dashboard - Simpan data album baru
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -19,12 +18,13 @@ export async function POST(request: Request) {
     }
 
     const { data, error } = await supabase
-      .from('albums')
+      .from('album') 
       .insert([
         { 
-          title: title, 
-          description: description,
-          created_at: new Date().toISOString()
+          NamaAlbum: title, 
+          Deskripsi: description,
+          TanggalDibuat: new Date().toISOString().split('T')[0],
+          UserID: 1
         }
       ])
       .select();
@@ -54,9 +54,9 @@ export async function POST(request: Request) {
 export async function GET() {
   try {
     const { data, error } = await supabase
-      .from('albums')
+      .from('album')
       .select('*')
-      .order('created_at', { ascending: false });
+      .order('TanggalDibuat', { ascending: false });
 
     if (error) throw error;
 
