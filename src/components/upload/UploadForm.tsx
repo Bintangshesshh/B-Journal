@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter, useSearchParams } from 'next/navigation';
+import ImageCropDialog from '@/components/ui/ImageCropDialog';
 
 export default function UploadForm() {
   const router = useRouter();
@@ -15,6 +16,12 @@ export default function UploadForm() {
   // State Form
   const [files, setFiles] = useState<File[]>([]);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
+  const cropResultsRef = useRef<File[]>([]);
+  const [cropQueue, setCropQueue] = useState<File[]>([]);
+  const [cropIndex, setCropIndex] = useState(0);
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
+  const [cropFileType, setCropFileType] = useState('image/jpeg');
+  const [isCropOpen, setIsCropOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [caption, setCaption] = useState('');
   const [selectedAlbum, setSelectedAlbum] = useState('');
@@ -82,27 +89,86 @@ export default function UploadForm() {
     
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const droppedFiles = Array.from(e.dataTransfer.files);
-      setSelectedFiles(droppedFiles);
+      startCropFlow(droppedFiles);
     }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const selectedFiles = Array.from(e.target.files);
-      setSelectedFiles(selectedFiles);
+      startCropFlow(selectedFiles);
     }
   };
 
-  const setSelectedFiles = (incomingFiles: File[]) => {
-    const limitedFiles = incomingFiles.slice(0, MAX_FILES);
+  const applySelectedFiles = (incomingFiles: File[]) => {
     previewUrls.forEach((url) => URL.revokeObjectURL(url));
-    setFiles(limitedFiles);
-    setPreviewUrls(limitedFiles.map((file) => URL.createObjectURL(file)));
-    if (incomingFiles.length > MAX_FILES) {
-      showNotification(`Maksimal ${MAX_FILES} file. Sisanya dilewati.`);
-    } else {
-      showNotification(`${limitedFiles.length} file siap diunggah!`);
+    setFiles(incomingFiles);
+    setPreviewUrls(incomingFiles.map((file) => URL.createObjectURL(file)));
+    showNotification(`${incomingFiles.length} file siap diunggah!`);
+  };
+
+  const startCropFlow = (incomingFiles: File[]) => {
+    const remainingSlots = MAX_FILES - files.length;
+    if (remainingSlots <= 0) {
+      showNotification(`Maksimal ${MAX_FILES} file sudah terisi.`);
+      return;
     }
+
+    const limitedFiles = incomingFiles.slice(0, remainingSlots);
+    if (limitedFiles.length === 0) return;
+
+    if (incomingFiles.length > remainingSlots) {
+      showNotification(`Maksimal ${MAX_FILES} file. Sisanya dilewati.`);
+    }
+
+    cropResultsRef.current = [...files];
+    setCropQueue(limitedFiles);
+    setCropIndex(0);
+    if (cropSrc) URL.revokeObjectURL(cropSrc);
+    setCropSrc(URL.createObjectURL(limitedFiles[0]));
+    setCropFileType(limitedFiles[0].type || 'image/jpeg');
+    setIsCropOpen(true);
+  };
+
+  const advanceCrop = (nextIndex: number) => {
+    if (cropSrc) URL.revokeObjectURL(cropSrc);
+    if (nextIndex >= cropQueue.length) {
+      setIsCropOpen(false);
+      setCropSrc(null);
+      setCropQueue([]);
+      setCropIndex(0);
+      applySelectedFiles(cropResultsRef.current);
+      return;
+    }
+
+    const nextFile = cropQueue[nextIndex];
+    setCropIndex(nextIndex);
+    setCropFileType(nextFile.type || 'image/jpeg');
+    setCropSrc(URL.createObjectURL(nextFile));
+  };
+
+  const handleCropConfirm = (blob: Blob) => {
+    const currentFile = cropQueue[cropIndex];
+    if (!currentFile) return;
+    const nextFile = new File([blob], currentFile.name, { type: blob.type || currentFile.type || 'image/jpeg' });
+    cropResultsRef.current.push(nextFile);
+    advanceCrop(cropIndex + 1);
+  };
+
+  const handleCropSkip = () => {
+    const currentFile = cropQueue[cropIndex];
+    if (!currentFile) return;
+    cropResultsRef.current.push(currentFile);
+    advanceCrop(cropIndex + 1);
+  };
+
+  const handleCropCancel = () => {
+    if (cropSrc) URL.revokeObjectURL(cropSrc);
+    setIsCropOpen(false);
+    setCropSrc(null);
+    setCropQueue([]);
+    setCropIndex(0);
+    cropResultsRef.current = [];
   };
 
   const handleSubmit = async () => {
@@ -197,6 +263,20 @@ export default function UploadForm() {
           {notification.message}
         </div>
       )}
+
+      <ImageCropDialog
+        open={isCropOpen}
+        imageSrc={cropSrc}
+        title={`Crop Photo ${cropIndex + 1}/${cropQueue.length || 1}`}
+        aspectMode="original"
+        fileType={cropFileType}
+        allowSkip
+        confirmLabel="Use Crop"
+        skipLabel="Skip"
+        onConfirm={handleCropConfirm}
+        onSkip={handleCropSkip}
+        onCancel={handleCropCancel}
+      />
 
       <div className="w-full max-w-2xl bg-white border-4 border-pitch-black shadow-[12px_12px_0px_0px_rgba(10,10,10,1)] p-8 md:p-10 relative z-10 my-8">
         

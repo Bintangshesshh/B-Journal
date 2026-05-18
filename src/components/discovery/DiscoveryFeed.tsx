@@ -270,11 +270,11 @@ export default function DiscoveryFeed() {
         </div>
       )}
       {isLoading ? (
-        <section className="snap-item w-full h-[100svh] relative flex items-center justify-center bg-pitch-black">
+        <section className="snap-item w-full h-full relative flex items-center justify-center bg-pitch-black">
           <p className="font-black uppercase text-white animate-pulse">Loading discovery feed...</p>
         </section>
       ) : posts.length === 0 ? (
-        <section className="snap-item w-full h-[100svh] relative flex items-center justify-center bg-pitch-black">
+        <section className="snap-item w-full h-full relative flex items-center justify-center bg-pitch-black">
           <p className="font-black uppercase text-white">No posts yet.</p>
         </section>
       ) : (
@@ -290,7 +290,7 @@ export default function DiscoveryFeed() {
               }
             }}
             data-index={index}
-            className="snap-item w-full h-[100svh] relative flex items-center justify-center bg-pitch-black overflow-hidden"
+            className="snap-item w-full h-full relative flex items-center justify-center bg-pitch-black overflow-hidden"
           >
             {/* Blurred backdrop */}
             <div className="absolute inset-0">
@@ -325,7 +325,7 @@ export default function DiscoveryFeed() {
             </div>
 
             {/* Bottom info + actions */}
-            <div className="absolute inset-x-0 bottom-0 p-5 md:p-8 bg-gradient-to-t from-pitch-black via-pitch-black/70 to-transparent">
+            <div className="absolute inset-x-0 bottom-16 md:bottom-0 p-5 md:p-8 bg-gradient-to-t from-pitch-black via-pitch-black/70 to-transparent">
               <div className="flex items-end justify-between gap-6">
                 <div className="max-w-[70%]">
                   <p className="font-label-md text-liverpool-red font-bold uppercase tracking-wide">{post.author}</p>
@@ -342,9 +342,6 @@ export default function DiscoveryFeed() {
                   <button className="flex flex-col items-center" onClick={() => handleOpenModal(post)}>
                     <span className="material-symbols-outlined">chat_bubble</span>
                     <span className="font-label-sm font-bold">{formatNumber(post.comments)}</span>
-                  </button>
-                  <button className="flex flex-col items-center">
-                    <span className="material-symbols-outlined">share</span>
                   </button>
                 </div>
               </div>

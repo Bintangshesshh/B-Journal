@@ -6,7 +6,7 @@ import SettingsForm from '@/components/settings/SettingsForm';
 
 export default function SettingsPage() {
   return (
-    <div className="w-full relative flex min-h-screen overflow-hidden bg-stone-100 selection:bg-liverpool-red selection:text-white">
+    <div className="w-full relative flex min-h-screen md:h-screen overflow-y-auto md:overflow-hidden bg-stone-100 selection:bg-liverpool-red selection:text-white">
       
       {/* Decorative Overlays */}
       <div className="absolute inset-0 texture-bg pointer-events-none z-0"></div>
@@ -16,7 +16,7 @@ export default function SettingsPage() {
       <Sidebar />
 
       {/* Main Content Area */}
-      <main className="flex-1 md:ml-64 w-full min-h-screen flex flex-col relative z-10 overflow-y-auto">
+      <main className="flex-1 md:ml-64 w-full min-h-screen md:h-screen flex flex-col relative z-10 overflow-y-auto md:overflow-hidden">
         <TopHeader />
         
         {/* Decorative Duct Tape for Corners */}
@@ -24,13 +24,13 @@ export default function SettingsPage() {
         <div className="fixed bottom-0 right-0 hidden md:block duck-tape bg-zinc-400 w-40 h-12 -rotate-45 translate-x-16 translate-y-6 z-[60] opacity-80 shadow-[inset_0_0_5px_rgba(0,0,0,0.5)] pointer-events-none"></div>
 
         {/* Content Canvas */}
-        <div className="p-4 md:p-8 lg:p-16 flex flex-col max-w-5xl mx-auto w-full relative z-10">
+        <div className="p-4 md:p-6 lg:p-8 flex-1 flex flex-col max-w-5xl mx-auto w-full relative z-10 pb-24 md:pb-8">
           {/* Header Section */}
-          <div className="relative mb-12">
-            <h1 className="text-4xl md:text-5xl lg:text-7xl font-black uppercase text-pitch-black mb-2 tracking-tighter ink-bleed-text inline-block relative z-10">
+          <div className="relative mb-6">
+            <h1 className="text-3xl md:text-4xl lg:text-5xl font-black uppercase text-pitch-black mb-2 tracking-tighter ink-bleed-text inline-block relative z-10">
               SYSTEM.SETTINGS
             </h1>
-            <div className="h-4 w-48 bg-liverpool-red -skew-x-12 mb-8 shadow-[4px_4px_0px_black] relative z-0"></div>
+            <div className="h-3 w-40 bg-liverpool-red -skew-x-12 mb-4 shadow-[3px_3px_0px_black] relative z-0"></div>
             <div className="absolute bg-zinc-500 opacity-80 shadow-[inset_0_0_5px_rgba(0,0,0,0.5)] w-24 h-6 -top-4 right-0 md:right-10 rotate-3 z-20"></div>
           </div>
 

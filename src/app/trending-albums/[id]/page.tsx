@@ -51,10 +51,12 @@ export default function AlbumDetailPage({ params }: { params: Promise<{ id: stri
         return;
       }
 
+      const albumUser = Array.isArray(data.user) ? data.user[0] : data.user;
+
       setAlbum({
         id: data.AlbumID,
         title: data.NamaAlbum,
-        author: data.user?.Username ? `@${data.user.Username}` : '@unknown',
+        author: albumUser?.Username ? `@${albumUser.Username}` : '@unknown',
         count: data.foto?.length || 0,
         photos: data.foto || []
       });
@@ -110,14 +112,6 @@ export default function AlbumDetailPage({ params }: { params: Promise<{ id: stri
                   </p>
                 </div>
                 
-                <div className="flex gap-3">
-                  <button className="flex items-center justify-center w-12 h-12 bg-white border-4 border-pitch-black hover:bg-liverpool-red hover:text-white transition-colors shadow-[4px_4px_0_0_#000] active:shadow-none active:translate-x-1 active:translate-y-1">
-                    <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>favorite</span>
-                  </button>
-                  <button className="flex items-center justify-center w-12 h-12 bg-pitch-black text-white border-4 border-pitch-black hover:bg-liverpool-red transition-colors shadow-[4px_4px_0_0_rgba(200,16,46,1)] active:shadow-none active:translate-x-1 active:translate-y-1">
-                    <span className="material-symbols-outlined">share</span>
-                  </button>
-                </div>
               </div>
             </div>
           </div>

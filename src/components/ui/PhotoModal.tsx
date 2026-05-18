@@ -20,6 +20,7 @@ export default function PhotoModal({ isOpen, onClose, post }: PhotoModalProps) {
   const [isLiked, setIsLiked] = useState(false);
   const [showHeart, setShowHeart] = useState(false);
   const [totalLikes, setTotalLikes] = useState(0);
+  const [authorAvatarUrl, setAuthorAvatarUrl] = useState<string | null>(null);
   const [notification, setNotification] = useState<{ show: boolean; message: string }>({ show: false, message: '' });
   
   // Real Database Comments
@@ -42,14 +43,36 @@ export default function PhotoModal({ isOpen, onClose, post }: PhotoModalProps) {
     if (post && isOpen) {
       fetchComments();
       fetchLikes();
+      fetchAuthorAvatar();
     }
   }, [post, isOpen]);
+
+  const fetchAuthorAvatar = async () => {
+    if (!post?.author) {
+      setAuthorAvatarUrl(null);
+      return;
+    }
+
+    const username = post.author.startsWith('@') ? post.author.slice(1) : post.author;
+    if (!username) {
+      setAuthorAvatarUrl(null);
+      return;
+    }
+
+    const { data } = await supabase
+      .from('user')
+      .select('FotoProfil')
+      .eq('Username', username)
+      .single();
+
+    setAuthorAvatarUrl(data?.FotoProfil || null);
+  };
 
   const fetchComments = async () => {
     if (!post) return;
     const { data } = await supabase
       .from('komentarfoto')
-      .select('*, user(Username)')
+      .select('*, user(Username, FotoProfil)')
       .eq('FotoID', post.id)
       .order('TanggalKomentar', { ascending: true });
     
@@ -140,7 +163,7 @@ export default function PhotoModal({ isOpen, onClose, post }: PhotoModalProps) {
         IsiKomentar: newComment,
         TanggalKomentar: new Date().toISOString().split('T')[0]
       }])
-      .select('*, user(Username)')
+      .select('*, user(Username, FotoProfil)')
       .single();
 
     if (!error && data) {
@@ -179,7 +202,7 @@ export default function PhotoModal({ isOpen, onClose, post }: PhotoModalProps) {
       />
       
       {/* Modal Container */}
-      <div className="relative w-full max-w-6xl h-[90vh] md:h-[80vh] flex flex-col md:flex-row bg-surface-container-lowest border-8 border-pitch-black shadow-[16px_16px_0_0_#C8102E] overflow-hidden z-10 pointer-events-auto animate-in zoom-in-95 duration-200">
+      <div className="relative w-full max-w-6xl h-[92svh] md:h-[80vh] flex flex-col md:flex-row bg-surface-container-lowest border-8 border-pitch-black shadow-[16px_16px_0_0_#C8102E] overflow-y-auto md:overflow-hidden z-10 pointer-events-auto animate-in zoom-in-95 duration-200">
         
         {/* Close Button (Mobile) */}
         <button 
@@ -190,7 +213,7 @@ export default function PhotoModal({ isOpen, onClose, post }: PhotoModalProps) {
         </button>
 
         {/* Left Side: Photo */}
-        <div className="relative w-full md:w-[60%] shrink-0 h-[40vh] md:h-full bg-stadium-grey flex items-center justify-center border-b-8 md:border-b-0 md:border-r-8 border-pitch-black overflow-hidden group">
+        <div className="relative w-full md:w-[60%] shrink-0 h-[32vh] md:h-full bg-stadium-grey flex items-center justify-center border-b-8 md:border-b-0 md:border-r-8 border-pitch-black overflow-hidden group">
           {/* Changed 'object-cover' to 'object-contain' so tall photos aren't cropped */}
           <img 
             src={post.imgSrc} 
@@ -213,12 +236,15 @@ export default function PhotoModal({ isOpen, onClose, post }: PhotoModalProps) {
         </div>
 
         {/* Right Side: Details & Comments */}
-        <div className="w-full md:w-[40%] flex flex-col h-full bg-white relative">
+        <div className="w-full md:w-[40%] flex flex-col md:h-full bg-white relative">
           
           {/* Header */}
           <div className="flex justify-between items-center p-4 border-b-4 border-pitch-black bg-stadium-grey">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full border-2 border-pitch-black overflow-hidden bg-white">
+              <div className="w-10 h-10 rounded-full border-2 border-pitch-black overflow-hidden bg-stadium-grey">
+                {authorAvatarUrl ? (
+                  <img src={authorAvatarUrl} alt={post.author} className="w-full h-full object-cover" />
+                ) : null}
               </div>
               <div>
                 <h3 className="font-label-lg font-black uppercase text-pitch-black leading-none">{post.author}</h3>
@@ -239,7 +265,11 @@ export default function PhotoModal({ isOpen, onClose, post }: PhotoModalProps) {
           <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
             {/* Author Description */}
             <div className="flex gap-3 mb-6 pb-6 border-b-2 border-dashed border-pitch-black/30">
-              <div className="w-8 h-8 rounded-full border-2 border-pitch-black shrink-0 hidden sm:block"></div>
+              <div className="w-8 h-8 rounded-full border-2 border-pitch-black shrink-0 hidden sm:block overflow-hidden bg-stadium-grey">
+                {authorAvatarUrl ? (
+                  <img src={authorAvatarUrl} alt={post.author} className="w-full h-full object-cover" />
+                ) : null}
+              </div>
               <div>
                 <p className="font-body-sm text-pitch-black">
                   <span className="font-bold uppercase tracking-tight mr-2">{post.author}</span> 
@@ -256,10 +286,14 @@ export default function PhotoModal({ isOpen, onClose, post }: PhotoModalProps) {
               ) : (
                 comments.map(comment => (
                   <div key={comment.KomentarID} className="flex gap-3 items-start group">
-                    <div className="w-8 h-8 rounded-full border-2 border-pitch-black shrink-0 bg-stadium-grey flex items-center justify-center">
-                      <span className="text-[10px] font-bold">
-                        {comment.user?.Username ? comment.user.Username.charAt(0).toUpperCase() : 'U'}
-                      </span>
+                    <div className="w-8 h-8 rounded-full border-2 border-pitch-black shrink-0 bg-stadium-grey overflow-hidden flex items-center justify-center">
+                      {comment.user?.FotoProfil ? (
+                        <img src={comment.user.FotoProfil} alt={comment.user?.Username || 'user'} className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-[10px] font-bold">
+                          {comment.user?.Username ? comment.user.Username.charAt(0).toUpperCase() : 'U'}
+                        </span>
+                      )}
                     </div>
                     <div className="flex-1">
                       <p className="font-body-sm text-pitch-black">
@@ -296,15 +330,7 @@ export default function PhotoModal({ isOpen, onClose, post }: PhotoModalProps) {
                   </button>
                   <span className="font-bold font-label-lg">{totalLikes}</span>
                 </div>
-                <div className="flex items-center gap-1 group">
-                  <button className="hover:scale-110 active:scale-95 transition-transform">
-                    <span className="material-symbols-outlined text-3xl text-pitch-black group-hover:text-liverpool-red">send</span>
-                  </button>
-                </div>
               </div>
-              <button className="hover:scale-110 active:scale-95 transition-transform">
-                <span className="material-symbols-outlined text-3xl text-pitch-black">bookmark</span>
-              </button>
             </div>
             <p className="font-label-md font-bold uppercase tracking-tighter text-pitch-black mb-1">
               {totalLikes} LIKES

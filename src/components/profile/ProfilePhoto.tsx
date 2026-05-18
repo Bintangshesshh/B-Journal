@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import ImageCropDialog from '@/components/ui/ImageCropDialog';
 
 type ProfileUser = {
   userId: number;
@@ -15,6 +16,10 @@ export default function ProfilePhoto() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
+  const [pendingFileType, setPendingFileType] = useState('image/jpeg');
+  const [pendingFileName, setPendingFileName] = useState('profile');
+  const [isCropOpen, setIsCropOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const showNotification = (message: string) => {
@@ -70,7 +75,7 @@ export default function ProfilePhoto() {
     setTimeout(() => window.location.assign('/login'), 800);
   };
 
-  const handleProfilePhotoChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleProfilePhotoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -80,28 +85,55 @@ export default function ProfilePhoto() {
       return;
     }
 
+    const nextUrl = URL.createObjectURL(file);
+    setCropSrc(nextUrl);
+    setPendingFileType(file.type || 'image/jpeg');
+    setPendingFileName(file.name || 'profile');
+    setIsCropOpen(true);
+  };
+
+  const handleCropCancel = () => {
+    if (cropSrc) URL.revokeObjectURL(cropSrc);
+    setCropSrc(null);
+    setIsCropOpen(false);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleCropConfirm = async (blob: Blob) => {
+    const storedUser = localStorage.getItem('bJournalUser');
+    if (!storedUser) {
+      showNotification('Silakan login dulu.');
+      handleCropCancel();
+      return;
+    }
+
     let userId: number | null = null;
     try {
       userId = Number(JSON.parse(storedUser).UserID);
     } catch {
       showNotification('Sesi login tidak valid.');
+      handleCropCancel();
       return;
     }
 
     if (!userId || Number.isNaN(userId)) {
       showNotification('Sesi login tidak valid.');
+      handleCropCancel();
       return;
     }
 
     setIsUploading(true);
     try {
-      const fileExt = file.name.split('.').pop();
+      const extFromName = pendingFileName.split('.').pop();
+      const extFromType = pendingFileType.split('/').pop();
+      const fileExt = extFromName || extFromType || 'jpg';
       const fileName = `profile-${Date.now()}.${fileExt}`;
       const filePath = `${userId}/${fileName}`;
+      const uploadFile = new File([blob], fileName, { type: pendingFileType });
 
       const { error: uploadError } = await supabase.storage
         .from('photos')
-        .upload(filePath, file, { upsert: true });
+        .upload(filePath, uploadFile, { upsert: true });
 
       if (uploadError) throw new Error(uploadError.message);
 
@@ -121,7 +153,7 @@ export default function ProfilePhoto() {
       showNotification(`Gagal upload foto profil: ${err.message || 'Unknown error'}`);
     } finally {
       setIsUploading(false);
-      if (event.target) event.target.value = '';
+      handleCropCancel();
     }
   };
 
@@ -135,6 +167,17 @@ export default function ProfilePhoto() {
         </div>
       )}
 
+      <ImageCropDialog
+        open={isCropOpen}
+        imageSrc={cropSrc}
+        title="Crop Profile Photo"
+        aspectMode="square"
+        fileType={pendingFileType}
+        confirmLabel="Use Photo"
+        onConfirm={handleCropConfirm}
+        onCancel={handleCropCancel}
+      />
+
       {/* Profile Image Container */}
       <div className="relative group mb-8">
         {/* Red Shadow Box */}
@@ -147,11 +190,13 @@ export default function ProfilePhoto() {
               <span className="font-black uppercase text-tertiary">Loading...</span>
             </div>
           ) : avatarUrl ? (
-            <img 
-              alt="Main Profile Photo" 
-              className="w-[300px] h-[300px] md:w-[400px] md:h-[400px] aspect-square object-contain" 
-              src={avatarUrl}
-            />
+            <div className="w-[300px] h-[300px] md:w-[400px] md:h-[400px] bg-stadium-grey p-4 flex items-center justify-center">
+              <img 
+                alt="Main Profile Photo" 
+                className="w-full h-full object-contain" 
+                src={avatarUrl}
+              />
+            </div>
           ) : (
             <div className="w-[300px] h-[300px] md:w-[400px] md:h-[400px] flex items-center justify-center bg-stadium-grey">
               <span className="material-symbols-outlined text-6xl text-pitch-black">person</span>

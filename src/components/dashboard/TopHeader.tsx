@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
 
 export default function TopHeader() {
   const pathname = usePathname();
@@ -16,19 +17,81 @@ export default function TopHeader() {
       setHasUnread(stored === '1');
     };
 
+    const checkUnreadFromDb = async () => {
+      const storedUser = localStorage.getItem('bJournalUser');
+      if (!storedUser) return;
+
+      let userId: number | null = null;
+      try {
+        userId = Number(JSON.parse(storedUser).UserID);
+      } catch {
+        return;
+      }
+
+      if (!userId || Number.isNaN(userId)) return;
+
+      const readAtRaw = localStorage.getItem('bJournalNotifReadAt');
+      const readAt = readAtRaw ? Number(readAtRaw) : 0;
+
+      const { data: photos } = await supabase
+        .from('foto')
+        .select('FotoID')
+        .eq('UserID', userId);
+
+      const photoIds = (photos || []).map((p: any) => p.FotoID);
+      if (photoIds.length === 0) {
+        localStorage.setItem('bJournalNotifHasUnread', '0');
+        setHasUnread(false);
+        return;
+      }
+
+      const [likesResult, commentsResult] = await Promise.all([
+        supabase
+          .from('likefoto')
+          .select('FotoID, UserID, TanggalLike')
+          .in('FotoID', photoIds),
+        supabase
+          .from('komentarfoto')
+          .select('FotoID, UserID, TanggalKomentar')
+          .in('FotoID', photoIds)
+      ]);
+
+      const likeUnread = (likesResult.data || []).filter((row: any) => {
+        if (Number(row.UserID) === userId) return false;
+        const time = row.TanggalLike ? new Date(row.TanggalLike).getTime() : 0;
+        return readAt === 0 ? true : time > readAt;
+      }).length;
+
+      const commentUnread = (commentsResult.data || []).filter((row: any) => {
+        if (Number(row.UserID) === userId) return false;
+        const time = row.TanggalKomentar ? new Date(row.TanggalKomentar).getTime() : 0;
+        return readAt === 0 ? true : time > readAt;
+      }).length;
+
+      const hasUnreadFromDb = likeUnread + commentUnread > 0;
+      localStorage.setItem('bJournalNotifHasUnread', hasUnreadFromDb ? '1' : '0');
+      setHasUnread(hasUnreadFromDb);
+    };
+
     readUnreadFlag();
+    checkUnreadFromDb();
 
     const onStorage = (event: StorageEvent) => {
       if (event.key === 'bJournalNotifHasUnread') readUnreadFlag();
     };
 
     const onLocalUpdate = () => readUnreadFlag();
+    const onFocus = () => checkUnreadFromDb();
+    const interval = window.setInterval(checkUnreadFromDb, 30000);
 
     window.addEventListener('storage', onStorage);
     window.addEventListener('bjournal-notif-update', onLocalUpdate as EventListener);
+    window.addEventListener('focus', onFocus);
     return () => {
       window.removeEventListener('storage', onStorage);
       window.removeEventListener('bjournal-notif-update', onLocalUpdate as EventListener);
+      window.removeEventListener('focus', onFocus);
+      window.clearInterval(interval);
     };
   }, []);
 
@@ -42,13 +105,12 @@ export default function TopHeader() {
             className={`relative transition-all flex items-center justify-center w-10 h-10 border-[3px] border-pitch-black ${
               isActive('/notifications')
                 ? 'bg-liverpool-red text-white translate-y-[3px] translate-x-[3px] shadow-none'
-                : 'text-pitch-black bg-white hover:text-liverpool-red shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] active:translate-y-[3px] active:translate-x-[3px] active:shadow-none'
+                : hasUnread
+                  ? 'bg-liverpool-red text-white shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] active:translate-y-[3px] active:translate-x-[3px] active:shadow-none'
+                  : 'text-pitch-black bg-white hover:text-liverpool-red shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] active:translate-y-[3px] active:translate-x-[3px] active:shadow-none'
             }`}
           >
             <span className="material-symbols-outlined text-[20px]" style={isActive('/notifications') ? { fontVariationSettings: "'FILL' 1" } : {}}>notifications</span>
-            {!isActive('/notifications') && hasUnread && (
-              <div className="absolute -top-1 -right-1 w-3 h-3 bg-liverpool-red border-2 border-pitch-black animate-pulse"></div>
-            )}
           </Link>
           <Link 
             href="/settings" 
@@ -74,13 +136,12 @@ export default function TopHeader() {
             className={`relative transition-all flex items-center justify-center w-12 h-12 border-4 border-pitch-black ${
               isActive('/notifications')
                 ? 'bg-liverpool-red text-white translate-y-1 translate-x-1 shadow-none'
-                : 'text-pitch-black bg-white hover:text-liverpool-red shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-1 hover:-translate-x-1 hover:shadow-[6px_6px_0px_0px_rgba(200,16,46,1)] active:translate-y-1 active:translate-x-1 active:shadow-none'
+                : hasUnread
+                  ? 'bg-liverpool-red text-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-y-1 active:translate-x-1 active:shadow-none'
+                  : 'text-pitch-black bg-white hover:text-liverpool-red shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-1 hover:-translate-x-1 hover:shadow-[6px_6px_0px_0px_rgba(200,16,46,1)] active:translate-y-1 active:translate-x-1 active:shadow-none'
             }`}
           >
             <span className="material-symbols-outlined" style={isActive('/notifications') ? { fontVariationSettings: "'FILL' 1" } : {}}>notifications</span>
-            {!isActive('/notifications') && hasUnread && (
-              <div className="absolute -top-1 -right-1 w-4 h-4 bg-liverpool-red border-2 border-pitch-black animate-pulse"></div>
-            )}
           </Link>
           <Link 
             href="/settings" 

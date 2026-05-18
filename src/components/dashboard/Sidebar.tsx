@@ -111,12 +111,12 @@ export default function Sidebar() {
           }`}
         >
           {isActive('/profile') && <div className="absolute -left-2 -top-4 w-12 h-6 bg-zinc-300/60 -rotate-45 z-10 transition-none pointer-events-none"></div>}
-          <div className="w-12 h-12 rounded-full border-2 border-pitch-black bg-white flex-shrink-0 relative z-20 overflow-hidden">
+          <div className="w-12 h-12 rounded-full border-2 border-pitch-black bg-stadium-grey flex-shrink-0 relative z-20 overflow-hidden">
             {user?.avatarUrl ? (
               <img
                 src={user.avatarUrl}
                 alt={user.username}
-                className="w-full h-full object-contain"
+                className="w-full h-full object-cover"
               />
             ) : null}
           </div>

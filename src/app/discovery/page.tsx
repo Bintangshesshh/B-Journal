@@ -7,8 +7,8 @@ import DiscoveryFeed from '@/components/discovery/DiscoveryFeed';
 
 export default function DiscoveryPage() {
   return (
-    <div className="w-full relative flex h-screen overflow-hidden bg-pitch-black">
-      <main className="w-full h-screen snap-container relative">
+    <div className="w-full relative flex h-[100svh] md:h-screen overflow-hidden bg-pitch-black">
+      <main className="w-full h-[calc(100svh-64px)] md:h-screen snap-container relative">
         <DiscoveryFeed />
       </main>
 

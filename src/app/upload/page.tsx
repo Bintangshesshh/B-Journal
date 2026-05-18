@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import Sidebar from '@/components/dashboard/Sidebar';
 import MobileBottomNav from '@/components/dashboard/MobileBottomNav';
 import TopHeader from '@/components/dashboard/TopHeader';
@@ -18,8 +18,9 @@ export default function UploadPage() {
         <TopHeader />
         
         <div className="flex-1 flex items-center justify-center p-6 md:p-12 pb-24 md:pb-12 h-full">
-          {/* Upload Form Component */}
-          <UploadForm />
+          <Suspense fallback={<div className="font-black uppercase">Loading...</div>}>
+            <UploadForm />
+          </Suspense>
         </div>
       </main>
 
