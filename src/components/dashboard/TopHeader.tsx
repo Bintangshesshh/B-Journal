@@ -30,8 +30,17 @@ export default function TopHeader() {
 
       if (!userId || Number.isNaN(userId)) return;
 
-      const readAtRaw = localStorage.getItem('bJournalNotifReadAt');
-      const readAt = readAtRaw ? Number(readAtRaw) : 0;
+      let readIds: string[] = [];
+      const readRaw = localStorage.getItem('bJournalNotifReadIds');
+      if (readRaw) {
+        try {
+          const parsed = JSON.parse(readRaw);
+          if (Array.isArray(parsed)) readIds = parsed;
+        } catch {
+          readIds = [];
+        }
+      }
+      const readIdSet = new Set(readIds);
 
       const { data: photos } = await supabase
         .from('foto')
@@ -48,24 +57,24 @@ export default function TopHeader() {
       const [likesResult, commentsResult] = await Promise.all([
         supabase
           .from('likefoto')
-          .select('FotoID, UserID, TanggalLike')
+          .select('FotoID, UserID')
           .in('FotoID', photoIds),
         supabase
           .from('komentarfoto')
-          .select('FotoID, UserID, TanggalKomentar')
+          .select('KomentarID, FotoID, UserID')
           .in('FotoID', photoIds)
       ]);
 
       const likeUnread = (likesResult.data || []).filter((row: any) => {
         if (Number(row.UserID) === userId) return false;
-        const time = row.TanggalLike ? new Date(row.TanggalLike).getTime() : 0;
-        return readAt === 0 ? true : time > readAt;
+        const id = `like-${row.FotoID}-${row.UserID}`;
+        return !readIdSet.has(id);
       }).length;
 
       const commentUnread = (commentsResult.data || []).filter((row: any) => {
         if (Number(row.UserID) === userId) return false;
-        const time = row.TanggalKomentar ? new Date(row.TanggalKomentar).getTime() : 0;
-        return readAt === 0 ? true : time > readAt;
+        const id = `comment-${row.KomentarID}`;
+        return !readIdSet.has(id);
       }).length;
 
       const hasUnreadFromDb = likeUnread + commentUnread > 0;

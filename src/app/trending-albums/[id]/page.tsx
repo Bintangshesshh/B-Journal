@@ -1,11 +1,13 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Sidebar from '@/components/dashboard/Sidebar';
 import TopHeader from '@/components/dashboard/TopHeader';
 import MobileBottomNav from '@/components/dashboard/MobileBottomNav';
 import PhotoModal from '@/components/ui/PhotoModal';
+import LoginPrompt from '@/components/ui/LoginPrompt';
 import { supabase } from '@/lib/supabase';
 
 type AlbumPhoto = {
@@ -24,10 +26,12 @@ type AlbumDetail = {
 };
 
 export default function AlbumDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const router = useRouter();
   const [album, setAlbum] = useState<AlbumDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedPost, setSelectedPost] = useState<AlbumPhoto | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
 
   const { id } = React.use(params);
   const albumId = useMemo(() => Number(id), [id]);
@@ -66,7 +70,29 @@ export default function AlbumDetailPage({ params }: { params: Promise<{ id: stri
     fetchAlbum();
   }, [albumId]);
 
+  const ensureLoggedIn = () => {
+    const storedUser = localStorage.getItem('bJournalUser');
+    if (!storedUser) {
+      setShowLoginPrompt(true);
+      return false;
+    }
+
+    try {
+      const parsed = JSON.parse(storedUser);
+      if (!parsed?.UserID) {
+        setShowLoginPrompt(true);
+        return false;
+      }
+    } catch {
+      setShowLoginPrompt(true);
+      return false;
+    }
+
+    return true;
+  };
+
   const handleOpenModal = (post: AlbumPhoto) => {
+    if (!ensureLoggedIn()) return;
     setSelectedPost(post);
     setIsModalOpen(true);
   };
@@ -165,6 +191,14 @@ export default function AlbumDetailPage({ params }: { params: Promise<{ id: stri
           author: album?.author || '@unknown',
           imgSrc: selectedPost.LokasiFile
         } : null}
+      />
+
+      <LoginPrompt
+        open={showLoginPrompt}
+        title="Login dulu?"
+        message="Biar bisa buka foto ukuran penuh."
+        onClose={() => setShowLoginPrompt(false)}
+        onLogin={() => router.push('/login')}
       />
 
       <MobileBottomNav />

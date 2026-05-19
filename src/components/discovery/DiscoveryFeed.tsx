@@ -1,8 +1,10 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import PhotoModal from '@/components/ui/PhotoModal';
+import LoginPrompt from '@/components/ui/LoginPrompt';
 
 type DiscoveryPost = {
   id: number;
@@ -24,6 +26,7 @@ type ModalPost = {
 };
 
 export default function DiscoveryFeed() {
+  const router = useRouter();
   const [posts, setPosts] = useState<DiscoveryPost[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isFetching, setIsFetching] = useState(false);
@@ -31,6 +34,7 @@ export default function DiscoveryFeed() {
   const [page, setPage] = useState(0);
   const [selectedPost, setSelectedPost] = useState<ModalPost | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [heartPostId, setHeartPostId] = useState<number | null>(null);
   const [currentUser, setCurrentUser] = useState<{ UserID: number; Username?: string } | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -205,7 +209,29 @@ export default function DiscoveryFeed() {
     )));
   };
 
+  const ensureLoggedIn = () => {
+    const storedUser = localStorage.getItem('bJournalUser');
+    if (!storedUser) {
+      setShowLoginPrompt(true);
+      return false;
+    }
+
+    try {
+      const parsed = JSON.parse(storedUser);
+      if (!parsed?.UserID) {
+        setShowLoginPrompt(true);
+        return false;
+      }
+    } catch {
+      setShowLoginPrompt(true);
+      return false;
+    }
+
+    return true;
+  };
+
   const handleOpenModal = (post: DiscoveryPost) => {
+    if (!ensureLoggedIn()) return;
     setSelectedPost({
       id: post.id,
       title: post.title,
@@ -382,6 +408,14 @@ export default function DiscoveryFeed() {
         isOpen={isModalOpen}
         onClose={handleCloseModal}
         post={modalPost}
+      />
+
+      <LoginPrompt
+        open={showLoginPrompt}
+        title="Login dulu?"
+        message="Biar bisa buka foto ukuran penuh di Discovery."
+        onClose={() => setShowLoginPrompt(false)}
+        onLogin={() => router.push('/login')}
       />
     </>
   );

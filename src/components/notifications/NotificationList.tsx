@@ -20,12 +20,17 @@ export default function NotificationList() {
     isSystem?: boolean;
   }>>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [readAt, setReadAt] = useState<number>(0);
+  const [readIds, setReadIds] = useState<string[]>([]);
 
   useEffect(() => {
-    const stored = localStorage.getItem('bJournalNotifReadAt');
-    const parsed = stored ? Number(stored) : 0;
-    setReadAt(Number.isNaN(parsed) ? 0 : parsed);
+    const stored = localStorage.getItem('bJournalNotifReadIds');
+    if (!stored) return;
+    try {
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed)) setReadIds(parsed);
+    } catch {
+      setReadIds([]);
+    }
   }, []);
 
   useEffect(() => {
@@ -106,17 +111,15 @@ export default function NotificationList() {
     fetchNotifications();
   }, []);
 
+  const readIdSet = useMemo(() => new Set(readIds), [readIds]);
+
   const formattedNotifications = useMemo(() => (
-    notifications.map((notif) => {
-      const createdAtMs = notif.createdAt ? new Date(notif.createdAt).getTime() : 0;
-      const isRead = readAt > 0 ? (createdAtMs === 0 || createdAtMs <= readAt) : false;
-      return {
-        ...notif,
-        read: isRead,
-        time: notif.time ? new Date(notif.time).toLocaleDateString('en-US', { month: 'short', day: '2-digit' }) : 'Just now'
-      };
-    })
-  ), [notifications, readAt]);
+    notifications.map((notif) => ({
+      ...notif,
+      read: readIdSet.has(notif.id),
+      time: notif.time ? new Date(notif.time).toLocaleDateString('en-US', { month: 'short', day: '2-digit' }) : 'Just now'
+    }))
+  ), [notifications, readIdSet]);
 
   const filterOptions = useMemo(() => {
     const counts = formattedNotifications.reduce(
@@ -152,10 +155,10 @@ export default function NotificationList() {
   }, [unreadCount]);
 
   const handleMarkAllRead = () => {
-    const now = Date.now();
-    localStorage.setItem('bJournalNotifReadAt', `${now}`);
+    const ids = formattedNotifications.map((notif) => notif.id);
+    localStorage.setItem('bJournalNotifReadIds', JSON.stringify(ids));
     localStorage.setItem('bJournalNotifHasUnread', '0');
-    setReadAt(now);
+    setReadIds(ids);
     window.dispatchEvent(new Event('bjournal-notif-update'));
   };
 

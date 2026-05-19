@@ -1,8 +1,10 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import PhotoModal from '../ui/PhotoModal';
+import LoginPrompt from '../ui/LoginPrompt';
 
 type PhotoRow = {
   FotoID: number;
@@ -23,11 +25,13 @@ type ModalPost = {
 };
 
 export default function FeedList() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<'latest' | 'trending'>('latest');
   const [photos, setPhotos] = useState<PhotoRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedPost, setSelectedPost] = useState<ModalPost | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
 
   useEffect(() => {
     fetchPhotos();
@@ -63,6 +67,27 @@ export default function FeedList() {
     setLoading(false);
   };
 
+  const ensureLoggedIn = () => {
+    const storedUser = localStorage.getItem('bJournalUser');
+    if (!storedUser) {
+      setShowLoginPrompt(true);
+      return false;
+    }
+
+    try {
+      const parsed = JSON.parse(storedUser);
+      if (!parsed?.UserID) {
+        setShowLoginPrompt(true);
+        return false;
+      }
+    } catch {
+      setShowLoginPrompt(true);
+      return false;
+    }
+
+    return true;
+  };
+
   const toModalPost = (photo: PhotoRow): ModalPost => ({
     id: photo.FotoID,
     title: photo.JudulFoto,
@@ -72,6 +97,7 @@ export default function FeedList() {
   });
 
   const handleOpenModal = (photo: PhotoRow) => {
+    if (!ensureLoggedIn()) return;
     setSelectedPost(toModalPost(photo));
     setIsModalOpen(true);
   };
@@ -172,6 +198,14 @@ export default function FeedList() {
         isOpen={isModalOpen}
         onClose={handleCloseModal}
         post={selectedPost}
+      />
+
+      <LoginPrompt
+        open={showLoginPrompt}
+        title="Login dulu?"
+        message="Biar bisa buka foto ukuran penuh."
+        onClose={() => setShowLoginPrompt(false)}
+        onLogin={() => router.push('/login')}
       />
     </div>
   );
