@@ -21,7 +21,7 @@ export async function GET() {
   }
 
   const supabase = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } });
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE)?.value;
   const payload = verifySessionToken(token);
   if (!payload) {
