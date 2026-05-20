@@ -106,7 +106,7 @@ export default function ProfileForm() {
           <div className="col-span-2 sm:col-span-2 space-y-1">
             <label className="block text-[10px] font-black uppercase tracking-wider text-tertiary">Full_Name // Creator_ID</label>
             <input 
-              className="w-full bg-stadium-grey border-4 border-pitch-black p-3 font-black text-sm focus:ring-0 focus:outline-none focus:bg-white transition-colors uppercase" 
+              className="w-full bg-stadium-grey border-4 border-pitch-black p-3 font-black text-sm focus:ring-0 focus:outline-none focus:bg-white transition-colors normal-case" 
               type="text" 
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
@@ -119,7 +119,7 @@ export default function ProfileForm() {
           <div className="flex items-center bg-stadium-grey border-4 border-pitch-black focus-within:bg-white transition-colors">
             <span className="px-3 text-liverpool-red font-black border-r-4 border-pitch-black">@</span>
             <input 
-              className="w-full bg-transparent border-none p-3 font-black text-sm focus:ring-0 focus:outline-none uppercase" 
+              className="w-full bg-transparent border-none p-3 font-black text-sm focus:ring-0 focus:outline-none normal-case" 
               type="text" 
               value={username}
               onChange={(e) => setUsername(e.target.value)}
@@ -131,7 +131,7 @@ export default function ProfileForm() {
           <label className="block text-[10px] font-black uppercase tracking-wider text-tertiary">Email // Contact_Link</label>
           <div className="flex items-center bg-stadium-grey border-4 border-pitch-black focus-within:bg-white transition-colors">
             <input 
-              className="w-full bg-transparent border-none p-3 font-black text-sm focus:ring-0 focus:outline-none uppercase lowercase-placeholder" 
+              className="w-full bg-transparent border-none p-3 font-black text-sm focus:ring-0 focus:outline-none normal-case" 
               type="email" 
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -142,11 +142,11 @@ export default function ProfileForm() {
         <div className="space-y-1 relative z-10">
           <label className="block text-[10px] font-black uppercase tracking-wider text-tertiary">Address // Location_Data</label>
           <textarea 
-            className="w-full bg-stadium-grey border-4 border-pitch-black p-4 font-black text-sm focus:ring-0 focus:outline-none focus:bg-white resize-none min-h-[120px] uppercase transition-colors" 
+            className="w-full bg-stadium-grey border-4 border-pitch-black p-4 font-black text-sm focus:ring-0 focus:outline-none focus:bg-white resize-none min-h-[120px] normal-case transition-colors" 
             rows={4}
             value={alamat}
             onChange={(e) => setAlamat(e.target.value)}
-            placeholder="STREET.OR.CITY"
+            placeholder="Street or city"
           ></textarea>
           
           {/* Stamp Graphic */}

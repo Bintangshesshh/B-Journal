@@ -1,6 +1,5 @@
 "use client";
 import React, { useState } from "react";
-import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -27,22 +26,28 @@ const RightFormPanel = () => {
     setLoading(true);
     setErrorMsg("");
 
-    const { error } = await supabase
-      .from('user')
-      .insert([
-        {
-          Username: formData.username,
-          Password: formData.password,
-          Email: formData.email,
-          NamaLengkap: formData.fullName
-        }
-      ]);
+    try {
+      const response = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fullName: formData.fullName,
+          username: formData.username,
+          email: formData.email,
+          password: formData.password
+        })
+      });
 
-    if (error) {
-      setErrorMsg(error.message);
-      setLoading(false);
-    } else {
+      const payload = await response.json();
+      if (!response.ok) {
+        setErrorMsg(payload?.message || "Register gagal.");
+        return;
+      }
+
       setShowSuccessPopup(true);
+    } catch {
+      setErrorMsg("Register gagal. Coba lagi.");
+    } finally {
       setLoading(false);
     }
   };
@@ -98,7 +103,7 @@ const RightFormPanel = () => {
               name: "fullName",
               label: "FULL NAME // CREATOR_ID",
               type: "text",
-              placeholder: "ENTER.NAME.HERE",
+              placeholder: "Enter your name",
               tapeTop: "-top-2 -left-3 w-10 h-5 transform -rotate-6",
               tapeBottom: "-bottom-2 -right-3 w-12 h-5 transform rotate-3"
             },
@@ -107,7 +112,7 @@ const RightFormPanel = () => {
               name: "username",
               label: "USERNAME // UNIQUE_HANDLE",
               type: "text",
-              placeholder: "ENTER.USERNAME.HERE",
+              placeholder: "Enter a username",
               tapeTop: "-top-3 -right-2 w-14 h-5 transform rotate-12",
               tapeBottom: "-bottom-2 -left-2 w-12 h-5 transform -rotate-6"
             },
@@ -116,7 +121,7 @@ const RightFormPanel = () => {
               name: "email",
               label: "EMAIL ADDRESS // CONTACT_LINK",
               type: "email",
-              placeholder: "ENTER.EMAIL.HERE",
+              placeholder: "Enter your email",
               tapeTop: "-top-2 -left-4 w-10 h-5 transform -rotate-6",
               tapeBottom: "-bottom-2 -right-2 w-12 h-5 transform rotate-6"
             },
@@ -125,7 +130,7 @@ const RightFormPanel = () => {
               name: "password",
               label: "PASSWORD // ACCESS_CODE",
               type: "password",
-              placeholder: "SECURE.INPUT",
+              placeholder: "Create a password",
               tapeTop: "-top-2 -left-3 w-10 h-5 transform -rotate-6",
               tapeBottom: "-bottom-2 -right-3 w-12 h-5 transform rotate-3"
             }

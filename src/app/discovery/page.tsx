@@ -8,32 +8,56 @@ import DiscoveryFeed from '@/components/discovery/DiscoveryFeed';
 
 export default function DiscoveryPage() {
   const router = useRouter();
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [hasCheckedAuth, setHasCheckedAuth] = useState(false);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('bJournalUser');
-    let loggedIn = false;
+    let canceled = false;
 
-    if (storedUser) {
-      try {
-        const parsed = JSON.parse(storedUser);
-        loggedIn = !!parsed?.UserID;
-      } catch {
-        loggedIn = false;
+    const checkAuth = async () => {
+      const storedUser = localStorage.getItem('bJournalUser');
+      if (storedUser) {
+        try {
+          const parsed = JSON.parse(storedUser);
+          if (parsed?.UserID) {
+            if (!canceled) setIsLoggedIn(true);
+            if (!canceled) setHasCheckedAuth(true);
+            return;
+          }
+        } catch {
+          // ignore
+        }
       }
-    }
 
-    setIsLoggedIn(loggedIn);
+      try {
+        const response = await fetch('/api/auth/me', { cache: 'no-store' });
+        const payload = await response.json();
+        if (payload?.user) {
+          localStorage.setItem('bJournalUser', JSON.stringify(payload.user));
+          if (!canceled) setIsLoggedIn(true);
+        }
+      } catch {
+        if (!canceled) setIsLoggedIn(false);
+      } finally {
+        if (!canceled) setHasCheckedAuth(true);
+      }
+    };
+
+    checkAuth();
+    return () => {
+      canceled = true;
+    };
   }, []);
 
-  const isLocked = isLoggedIn !== true;
+  const isLocked = hasCheckedAuth && !isLoggedIn;
+  const contentReady = hasCheckedAuth && isLoggedIn;
 
   return (
     <div className="w-full relative flex h-[100svh] md:h-screen overflow-hidden bg-pitch-black">
       <main
-        className={`w-full h-[calc(100svh-64px)] md:h-screen relative ${
-          isLocked ? 'overflow-hidden pointer-events-none blur-[2px] scale-[0.99]' : 'snap-container'
-        }`}
+        className={`w-full h-[calc(100svh-64px)] md:h-screen relative transition-opacity duration-300 ${
+          contentReady ? 'opacity-100' : 'opacity-0'
+        } ${isLocked ? 'overflow-hidden pointer-events-none blur-[2px] scale-[0.99]' : 'snap-container'}`}
         aria-hidden={isLocked}
       >
         <DiscoveryFeed />

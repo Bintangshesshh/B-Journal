@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import ThemeSync from "@/components/ui/ThemeSync";
+import AuthSync from "@/components/ui/AuthSync";
 
 const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
@@ -28,6 +29,7 @@ export default function RootLayout({
         className={`${spaceGrotesk.variable} font-brutalist bg-surface-container-lowest text-on-surface antialiased flex flex-col md:flex-row relative overflow-x-hidden`}
       >
         <ThemeSync />
+        <AuthSync />
         <svg className="absolute hidden" height="0" width="0">
           <filter id="ink-bleed">
             <feTurbulence baseFrequency="0.12" numOctaves="3" result="noise" type="fractalNoise" />

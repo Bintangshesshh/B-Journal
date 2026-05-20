@@ -10,28 +10,52 @@ import { supabase } from '@/lib/supabase';
 
 export default function AlbumsPage() {
   const router = useRouter();
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [hasCheckedAuth, setHasCheckedAuth] = useState(false);
   const [albumCount, setAlbumCount] = useState(0);
   const [photoCount, setPhotoCount] = useState(0);
   const [isLoadingStats, setIsLoadingStats] = useState(true);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('bJournalUser');
-    let loggedIn = false;
+    let canceled = false;
 
-    if (storedUser) {
-      try {
-        const parsed = JSON.parse(storedUser);
-        loggedIn = !!parsed?.UserID;
-      } catch {
-        loggedIn = false;
+    const checkAuth = async () => {
+      const storedUser = localStorage.getItem('bJournalUser');
+      if (storedUser) {
+        try {
+          const parsed = JSON.parse(storedUser);
+          if (parsed?.UserID) {
+            if (!canceled) setIsLoggedIn(true);
+            if (!canceled) setHasCheckedAuth(true);
+            return;
+          }
+        } catch {
+          // ignore
+        }
       }
-    }
 
-    setIsLoggedIn(loggedIn);
+      try {
+        const response = await fetch('/api/auth/me', { cache: 'no-store' });
+        const payload = await response.json();
+        if (payload?.user) {
+          localStorage.setItem('bJournalUser', JSON.stringify(payload.user));
+          if (!canceled) setIsLoggedIn(true);
+        }
+      } catch {
+        if (!canceled) setIsLoggedIn(false);
+      } finally {
+        if (!canceled) setHasCheckedAuth(true);
+      }
+    };
+
+    checkAuth();
+    return () => {
+      canceled = true;
+    };
   }, []);
 
-  const isLocked = isLoggedIn !== true;
+  const isLocked = hasCheckedAuth && !isLoggedIn;
+  const contentReady = hasCheckedAuth && isLoggedIn;
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -73,9 +97,9 @@ export default function AlbumsPage() {
       <Sidebar />
 
       <main
-        className={`md:ml-64 flex-1 min-h-screen pb-24 md:pb-0 w-full overflow-y-auto ${
-          isLocked ? 'pointer-events-none blur-[2px] scale-[0.99]' : ''
-        }`}
+        className={`md:ml-64 flex-1 min-h-screen pb-24 md:pb-0 w-full overflow-y-auto transition-opacity duration-300 ${
+          contentReady ? 'opacity-100' : 'opacity-0'
+        } ${isLocked ? 'pointer-events-none blur-[2px] scale-[0.99]' : ''}`}
         aria-hidden={isLocked}
       >
         {/* 2. Header Atas (Mobile & Desktop) */}
@@ -103,7 +127,7 @@ export default function AlbumsPage() {
           </div>
 
           {/* Albums Grid */}
-          {!isLocked && <AlbumGrid />}
+          {contentReady && <AlbumGrid />}
         </div>
       </main>
 

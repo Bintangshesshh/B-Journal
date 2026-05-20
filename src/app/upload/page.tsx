@@ -9,25 +9,49 @@ import UploadForm from '@/components/upload/UploadForm';
 
 export default function UploadPage() {
   const router = useRouter();
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [hasCheckedAuth, setHasCheckedAuth] = useState(false);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('bJournalUser');
-    let loggedIn = false;
+    let canceled = false;
 
-    if (storedUser) {
-      try {
-        const parsed = JSON.parse(storedUser);
-        loggedIn = !!parsed?.UserID;
-      } catch {
-        loggedIn = false;
+    const checkAuth = async () => {
+      const storedUser = localStorage.getItem('bJournalUser');
+      if (storedUser) {
+        try {
+          const parsed = JSON.parse(storedUser);
+          if (parsed?.UserID) {
+            if (!canceled) setIsLoggedIn(true);
+            if (!canceled) setHasCheckedAuth(true);
+            return;
+          }
+        } catch {
+          // ignore
+        }
       }
-    }
 
-    setIsLoggedIn(loggedIn);
+      try {
+        const response = await fetch('/api/auth/me', { cache: 'no-store' });
+        const payload = await response.json();
+        if (payload?.user) {
+          localStorage.setItem('bJournalUser', JSON.stringify(payload.user));
+          if (!canceled) setIsLoggedIn(true);
+        }
+      } catch {
+        if (!canceled) setIsLoggedIn(false);
+      } finally {
+        if (!canceled) setHasCheckedAuth(true);
+      }
+    };
+
+    checkAuth();
+    return () => {
+      canceled = true;
+    };
   }, []);
 
-  const isLocked = isLoggedIn !== true;
+  const isLocked = hasCheckedAuth && !isLoggedIn;
+  const contentReady = hasCheckedAuth && isLoggedIn;
 
   return (
     <div className="w-full relative flex min-h-screen overflow-hidden bg-[#fff8f7]">
@@ -39,15 +63,15 @@ export default function UploadPage() {
 
       {/* Main Content Area */}
       <main
-        className={`flex-1 md:ml-64 w-full min-h-screen flex flex-col relative z-10 overflow-y-auto ${
-          isLocked ? 'pointer-events-none blur-[2px] scale-[0.99]' : ''
-        }`}
+        className={`flex-1 md:ml-64 w-full min-h-screen flex flex-col relative z-10 overflow-y-auto transition-opacity duration-300 ${
+          contentReady ? 'opacity-100' : 'opacity-0'
+        } ${isLocked ? 'pointer-events-none blur-[2px] scale-[0.99]' : ''}`}
         aria-hidden={isLocked}
       >
         <TopHeader />
         
         <div className="flex-1 flex items-center justify-center p-6 md:p-12 pb-24 md:pb-12 h-full">
-          {!isLocked && (
+          {contentReady && (
             <Suspense fallback={<div className="font-black uppercase">Loading...</div>}>
               <UploadForm />
             </Suspense>

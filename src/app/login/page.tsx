@@ -1,6 +1,5 @@
 "use client";
 import React, { useState } from "react";
-import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -24,28 +23,26 @@ const RightFormPanel = () => {
     setLoading(true);
     setErrorMsg("");
 
-    // Login dengan Query Table Manual (Bukan Auth JS Bawaan)
-    const { data: users, error } = await supabase
-      .from("user")
-      .select("*")
-      .eq("Username", username)
-      .eq("Password", password);
+    try {
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password })
+      });
 
-    if (error) {
-      // Kesalahan fetch/koneksi putus
-      setErrorMsg(error.message);
-      setLoading(false);
-    } else if (users && users.length > 0) {
-      // Kalau berhasil nemu Akunnya, simpan ke cookie/session lokal
-      const userData = users[0];
-      // Menyimpan detail basic ke localStorage saja agar lebih cepat test UKK
+      const payload = await response.json();
+      if (!response.ok) {
+        setErrorMsg(payload?.message || "Login gagal.");
+        return;
+      }
+
       if (typeof window !== "undefined") {
-        localStorage.setItem("bJournalUser", JSON.stringify(userData));
+        localStorage.setItem("bJournalUser", JSON.stringify(payload.user));
       }
       router.push("/");
-    } else {
-      // Username atau Password salah
-      setErrorMsg("Username or Password incorrect! ACCESS DENIED.");
+    } catch {
+      setErrorMsg("Login gagal. Coba lagi.");
+    } finally {
       setLoading(false);
     }
   };
@@ -80,7 +77,7 @@ const RightFormPanel = () => {
             id="username"
             label="Username // USER_ID"
             type="text"
-            placeholder="ENTER.USERNAME@HERE"
+            placeholder="Enter username"
             tapeTop="-top-2 -left-3 w-10 h-5 transform -rotate-6"
             tapeBottom="-bottom-2 -right-3 w-12 h-5 transform rotate-3"
             value={username}

@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useEffect, useRef, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import AlbumCard from './AlbumCard';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import RedirectOverlay from '@/components/ui/RedirectOverlay';
 
 interface Album {
   id: number;
@@ -20,6 +21,7 @@ interface Album {
 
 export default function AlbumGrid() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [albums, setAlbums] = useState<Album[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
@@ -33,6 +35,9 @@ export default function AlbumGrid() {
   const [isLoadingPhotos, setIsLoadingPhotos] = useState(false);
   const [photoQuery, setPhotoQuery] = useState('');
   const [coverPhotoId, setCoverPhotoId] = useState<number | null>(null);
+  const [redirectInfo, setRedirectInfo] = useState<null | { title: string; message: string; target: string; durationMs?: number }>(null);
+  const redirectTimerRef = useRef<number | null>(null);
+  const [autoOpened, setAutoOpened] = useState(false);
 
   const coverKey = (albumId: number) => `bJournalAlbumCover_${albumId}`;
   const getStoragePath = (publicUrl: string) => {
@@ -100,6 +105,24 @@ export default function AlbumGrid() {
 
   useEffect(() => {
     fetchAlbums();
+  }, []);
+
+  useEffect(() => {
+    if (autoOpened) return;
+    const createParam = searchParams.get('create');
+    if (createParam === '1') {
+      setAutoOpened(true);
+      handleOpenAdd();
+      const url = new URL(window.location.href);
+      url.searchParams.delete('create');
+      window.history.replaceState({}, '', url.pathname);
+    }
+  }, [autoOpened, searchParams]);
+
+  useEffect(() => {
+    return () => {
+      if (redirectTimerRef.current) window.clearTimeout(redirectTimerRef.current);
+    };
   }, []);
 
   const showNotification = (message: string) => {
@@ -312,13 +335,27 @@ export default function AlbumGrid() {
         };
         setAlbums([newAlbum, ...albums]);
         setIsModalOpen(false);
-        router.push(`/upload?albumId=${data.AlbumID}`);
+        startRedirect(`/upload?albumId=${data.AlbumID}`, 'Album dibuat', 'Membuka halaman upload...');
         return;
       } else {
         showNotification(`Gagal membuat album!`);
       }
     }
     setIsModalOpen(false);
+  };
+
+  const startRedirect = (target: string, title: string, message: string, delayMs = 1400) => {
+    if (redirectTimerRef.current) window.clearTimeout(redirectTimerRef.current);
+    setRedirectInfo({ title, message, target, durationMs: delayMs });
+    redirectTimerRef.current = window.setTimeout(() => {
+      router.push(target);
+    }, delayMs);
+  };
+
+  const cancelRedirect = () => {
+    if (redirectTimerRef.current) window.clearTimeout(redirectTimerRef.current);
+    redirectTimerRef.current = null;
+    setRedirectInfo(null);
   };
 
   const deleteAlbum = async (id: number, title: string) => {
@@ -577,6 +614,17 @@ export default function AlbumGrid() {
           </div>
         </div>
       )}
+
+      <RedirectOverlay
+        open={!!redirectInfo}
+        title={redirectInfo?.title || ''}
+        message={redirectInfo?.message || ''}
+        durationMs={redirectInfo?.durationMs}
+        actionLabel="Lanjut"
+        onAction={() => redirectInfo?.target && router.push(redirectInfo.target)}
+        cancelLabel="Nanti"
+        onCancel={cancelRedirect}
+      />
     </>
   );
 }

@@ -175,6 +175,16 @@
     filter: url('#ink-bleed');
   }
 
+  @keyframes redirect-progress {
+    from { transform: scaleX(0); }
+    to { transform: scaleX(1); }
+  }
+
+  .redirect-progress {
+    transform-origin: left;
+    animation: redirect-progress var(--redirect-duration, 1400ms) ease-in-out forwards;
+  }
+
   /* Decorative Background Texture simulating rough paper */
   .texture-bg {
     background-image: repeating-linear-gradient(45deg, #e5e2e1 25%, transparent 25%, transparent 75%, #e5e2e1 75%, #e5e2e1), repeating-linear-gradient(45deg, #e5e2e1 25%, transparent 25%, transparent 75%, #e5e2e1 75%, #e5e2e1);

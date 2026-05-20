@@ -342,9 +342,9 @@ export default function PhotoModal({ isOpen, onClose, post }: PhotoModalProps) {
                 type="text" 
                 value={newComment}
                 onChange={(e) => setNewComment(e.target.value)}
-                placeholder={currentUser ? "ADD A COMMENT..." : "LOGIN TO COMMENT..."}
+                placeholder={currentUser ? "Add a comment..." : "Login to comment..."}
                 disabled={!currentUser || isSubmitting}
-                className="flex-1 bg-white border-[3px] border-pitch-black p-2 font-label-md uppercase tracking-tighter placeholder:text-tertiary focus:outline-none focus:border-liverpool-red disabled:bg-zinc-200 disabled:cursor-not-allowed"
+                className="flex-1 bg-white border-[3px] border-pitch-black p-2 font-body-sm normal-case tracking-normal placeholder:text-tertiary focus:outline-none focus:border-liverpool-red disabled:bg-zinc-200 disabled:cursor-not-allowed"
               />
               <button 
                 type="submit"

@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter, useSearchParams } from 'next/navigation';
 import ImageCropDialog from '@/components/ui/ImageCropDialog';
+import RedirectOverlay from '@/components/ui/RedirectOverlay';
 
 export default function UploadForm() {
   const router = useRouter();
@@ -30,10 +31,22 @@ export default function UploadForm() {
   const [albums, setAlbums] = useState<any[]>([]);
   const [isCreatingAlbum, setIsCreatingAlbum] = useState(false);
   const [newAlbumName, setNewAlbumName] = useState('');
+  const [hasFetchedAlbums, setHasFetchedAlbums] = useState(false);
+  const [noAlbumRedirected, setNoAlbumRedirected] = useState(false);
   
   // State Data User & Loading
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [redirectInfo, setRedirectInfo] = useState<null | {
+    title: string;
+    message: string;
+    target: string;
+    actionLabel?: string;
+    cancelLabel?: string;
+    allowCancel?: boolean;
+    durationMs?: number;
+  }>(null);
+  const redirectTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     // Ambil data user yang login dari localStorage
@@ -47,6 +60,24 @@ export default function UploadForm() {
       setTimeout(() => router.push("/login"), 1500);
     }
   }, [router]);
+
+  useEffect(() => {
+    if (!hasFetchedAlbums || noAlbumRedirected) return;
+    if (albums.length === 0) {
+      setNoAlbumRedirected(true);
+      startRedirect('/albums?create=1', 'Belum ada album', 'Biar bisa upload, kamu perlu bikin album dulu.', 1400, {
+        actionLabel: 'Buka album',
+        cancelLabel: 'Nanti',
+        allowCancel: true
+      });
+    }
+  }, [albums.length, hasFetchedAlbums, noAlbumRedirected]);
+
+  useEffect(() => {
+    return () => {
+      if (redirectTimerRef.current) window.clearTimeout(redirectTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (!albumIdParam) return;
@@ -69,6 +100,27 @@ export default function UploadForm() {
     if (!error && data) {
       setAlbums(data);
     }
+    setHasFetchedAlbums(true);
+  };
+
+  const startRedirect = (
+    target: string,
+    title: string,
+    message: string,
+    delayMs = 1200,
+    options: { actionLabel?: string; cancelLabel?: string; allowCancel?: boolean } = {}
+  ) => {
+    if (redirectTimerRef.current) window.clearTimeout(redirectTimerRef.current);
+    setRedirectInfo({ title, message, target, durationMs: delayMs, ...options });
+    redirectTimerRef.current = window.setTimeout(() => {
+      router.push(target);
+    }, delayMs);
+  };
+
+  const cancelRedirect = () => {
+    if (redirectTimerRef.current) window.clearTimeout(redirectTimerRef.current);
+    redirectTimerRef.current = null;
+    setRedirectInfo(null);
   };
 
   // Basic Simulation Handlers
@@ -237,11 +289,8 @@ export default function UploadForm() {
 
       // Sukses
       showNotification(`SUCCESS: ${files.length} foto berhasil dipublish!`);
-      
-      // Tunggu bentar trus pindah ke home / halaman utama
-      setTimeout(() => {
-        router.push("/");
-      }, 2000);
+
+      startRedirect('/', 'Upload selesai', 'Membuka beranda jurnal kamu...', 1400);
 
     } catch (err: any) {
       showNotification(err.message || "Terjadi kesalahan!");
@@ -253,6 +302,8 @@ export default function UploadForm() {
     setNotification({ show: true, message });
     setTimeout(() => setNotification({ show: false, message: '' }), 3000);
   };
+
+  const isAlbumPlaceholder = !isCreatingAlbum && !selectedAlbum;
 
   return (
     <>
@@ -337,9 +388,9 @@ export default function UploadForm() {
             <input 
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full border-2 border-pitch-black bg-white p-4 font-body-md text-pitch-black placeholder-zinc-400 focus:outline-none focus:border-liverpool-red focus:shadow-[4px_4px_0px_0px_rgba(200,16,46,1)] transition-all rounded-none uppercase" 
+              className="w-full border-2 border-pitch-black bg-white p-4 font-body-md text-pitch-black placeholder-zinc-400 focus:outline-none focus:border-liverpool-red focus:shadow-[4px_4px_0px_0px_rgba(200,16,46,1)] transition-all rounded-none normal-case" 
               id="title" 
-              placeholder="ENTER PHOTO TITLE" 
+              placeholder="Enter photo title" 
               type="text"
             />
           </div>
@@ -360,14 +411,16 @@ export default function UploadForm() {
                     setSelectedAlbum(val);
                   }
                 }}
-                className="w-full border-2 border-pitch-black bg-white p-4 font-body-md text-pitch-black appearance-none focus:outline-none focus:border-liverpool-red focus:shadow-[4px_4px_0px_0px_rgba(200,16,46,1)] transition-all uppercase rounded-none cursor-pointer" 
+                className={`w-full border-2 border-pitch-black bg-white p-4 font-body-md appearance-none focus:outline-none focus:border-liverpool-red focus:shadow-[4px_4px_0px_0px_rgba(200,16,46,1)] transition-all normal-case rounded-none cursor-pointer ${
+                  isAlbumPlaceholder ? 'text-tertiary' : 'text-pitch-black'
+                }`}
                 id="album"
               >
-                <option value="">-- CHOOSE AN ALBUM --</option>
+                <option value="">Choose an album</option>
                 {albums.map((al) => (
                   <option key={al.AlbumID} value={al.AlbumID}>{al.NamaAlbum}</option>
                 ))}
-                <option className="font-bold text-liverpool-red bg-zinc-200" value="CREATE_NEW">+ CREATE NEW ALBUM...</option>
+                <option className="font-bold text-liverpool-red bg-zinc-200" value="CREATE_NEW">+ Create new album...</option>
               </select>
               <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-pitch-black">
                 <span className="material-symbols-outlined">expand_more</span>
@@ -380,8 +433,8 @@ export default function UploadForm() {
                 <input 
                   value={newAlbumName}
                   onChange={(e) => setNewAlbumName(e.target.value)}
-                  className="w-full border-2 border-liverpool-red border-dashed bg-zinc-100 p-4 font-body-md text-pitch-black placeholder-zinc-400 focus:outline-none focus:border-solid focus:shadow-[4px_4px_0px_0px_rgba(200,16,46,1)] transition-all rounded-none uppercase" 
-                  placeholder="NEW ALBUM NAME..." 
+                  className="w-full border-2 border-liverpool-red border-dashed bg-zinc-100 p-4 font-body-md text-pitch-black placeholder-zinc-400 focus:outline-none focus:border-solid focus:shadow-[4px_4px_0px_0px_rgba(200,16,46,1)] transition-all rounded-none normal-case" 
+                  placeholder="New album name..." 
                   type="text"
                 />
               </div>
@@ -394,9 +447,9 @@ export default function UploadForm() {
             <textarea 
               value={caption}
               onChange={(e) => setCaption(e.target.value)}
-              className="w-full border-2 border-pitch-black bg-white p-4 font-body-md text-pitch-black placeholder-zinc-400 resize-none focus:outline-none focus:border-liverpool-red focus:shadow-[4px_4px_0px_0px_rgba(200,16,46,1)] transition-all rounded-none uppercase" 
+              className="w-full border-2 border-pitch-black bg-white p-4 font-body-md text-pitch-black placeholder-zinc-400 resize-none focus:outline-none focus:border-liverpool-red focus:shadow-[4px_4px_0px_0px_rgba(200,16,46,1)] transition-all rounded-none normal-case" 
               id="caption" 
-              placeholder="TELL THE STORY BEHIND THIS SHOT..." 
+              placeholder="Tell the story behind this shot..." 
               rows={4}
             ></textarea>
           </div>
@@ -416,6 +469,17 @@ export default function UploadForm() {
           </button>
         </div>
       </div>
+
+      <RedirectOverlay
+        open={!!redirectInfo}
+        title={redirectInfo?.title || ''}
+        message={redirectInfo?.message || ''}
+        durationMs={redirectInfo?.durationMs}
+        actionLabel={redirectInfo?.actionLabel}
+        onAction={redirectInfo?.actionLabel ? () => redirectInfo?.target && router.push(redirectInfo.target) : undefined}
+        cancelLabel={redirectInfo?.allowCancel ? redirectInfo?.cancelLabel : undefined}
+        onCancel={redirectInfo?.allowCancel ? cancelRedirect : undefined}
+      />
     </>
   );
 }

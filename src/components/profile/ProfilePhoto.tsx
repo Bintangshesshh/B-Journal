@@ -69,7 +69,8 @@ export default function ProfilePhoto() {
     loadProfile();
   }, []);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await fetch('/api/auth/logout', { method: 'POST' });
     localStorage.removeItem('bJournalUser');
     showNotification('Logout berhasil. Mengalihkan ke login...');
     setTimeout(() => window.location.assign('/login'), 800);
