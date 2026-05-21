@@ -5,6 +5,7 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+// POST /api/dashboard - Simpan data album baru ke skema asli
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -17,14 +18,15 @@ export async function POST(request: Request) {
       );
     }
 
+    // DISESUAIKAN SAMA GAMBAR SUPABASE LU: tabel 'album', kolom 'NamaAlbum' & 'Deskripsi'
     const { data, error } = await supabase
       .from('album') 
       .insert([
         { 
           NamaAlbum: title, 
           Deskripsi: description,
-          TanggalDibuat: new Date().toISOString().split('T')[0],
-          UserID: 1
+          TanggalDibuat: new Date().toISOString().split('T')[0], // Format YYYY-MM-DD sesuai tipe 'date' lu
+          UserID: 1 // Default diisi 1 sesuai record yang udah ada di gambar lu Bin
         }
       ])
       .select();
@@ -51,12 +53,20 @@ export async function POST(request: Request) {
   }
 }
 
+// GET /api/dashboard - Menampilkan data sesuai skema asli
 export async function GET() {
   try {
     const { data, error } = await supabase
-      .from('album')
-      .select('*')
-      .order('TanggalDibuat', { ascending: false });
+  .from('album')
+  .select(`
+    AlbumID,
+    NamaAlbum,
+    Deskripsi,
+    TanggalDibuat,
+    UserID,
+    foto ( LokasiFile )
+  `)
+  .order('AlbumID', { ascending: false });
 
     if (error) throw error;
 
