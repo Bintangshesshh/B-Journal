@@ -23,6 +23,7 @@ export async function POST(request: Request) {
 
     const supabase = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } });
     const body = await request.json();
+    
     const username = String(body?.username || '').trim();
     const password = String(body?.password || '');
 
@@ -33,7 +34,7 @@ export async function POST(request: Request) {
     const { data: user, error } = await supabase
       .from('user')
       .select('UserID, Username, Email, NamaLengkap, FotoProfil, Password')
-      .eq('Username', username)
+      .ilike('Username', username) 
       .single();
 
     if (error || !user) {

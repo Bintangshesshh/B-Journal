@@ -68,7 +68,7 @@ export async function GET() {
   .order('AlbumID', { ascending: false });
 
     if (error) throw error;
-
+    
     return NextResponse.json({ success: true, data }, { status: 200 });
   } catch (err: any) {
     return NextResponse.json({ success: false, message: err.message }, { status: 500 });
