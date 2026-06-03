@@ -63,3 +63,28 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: false, message: 'Internal Server Error' }, { status: 500 });
   }
 }
+
+export async function DELETE(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const fotoId = searchParams.get('fotoId');
+    const urlFoto = searchParams.get('urlFoto'); 
+
+    let query = supabase.from('foto').delete();
+
+    if (fotoId && fotoId !== '-1') {
+      query = query.eq('FotoID', fotoId);
+    } else if (urlFoto) {
+      query = query.eq('LokasiFile', urlFoto);
+    } else {
+      return NextResponse.json({ success: false, message: 'ID atau URL Foto tidak ditemukan!' }, { status: 400 });
+    }
+
+    const { error } = await query;
+    if (error) throw error;
+
+    return NextResponse.json({ success: true, message: 'Foto berhasil dimusnahkan!' }, { status: 200 });
+  } catch (err: any) {
+    return NextResponse.json({ success: false, message: err.message }, { status: 500 });
+  }
+}
