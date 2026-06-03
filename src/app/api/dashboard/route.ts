@@ -7,117 +7,135 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // POST /api/dashboard - Simpan data album baru ke skema asli
 export async function POST(request: Request) {
-  try {
-    const body = await request.json();
-    const { title, description } = body;
+  try {
+    const body = await request.json();
+    const { title, description } = body;
 
-    if (!title || !description) {
-      return NextResponse.json(
-        { success: false, message: 'Title dan Description wajib diisi, Bin!' },
-        { status: 400 }
-      );
-    }
+    if (!title || !description) {
+      return NextResponse.json(
+        { success: false, message: 'Title dan Description wajib diisi, Bin!' },
+        { status: 400 }
+      );
+    }
 
-    const { data, error } = await supabase
-      .from('album') 
-      .insert([
-        { 
-          NamaAlbum: title, 
-          Deskripsi: description,
-          TanggalDibuat: new Date().toISOString().split('T')[0],
-          UserID: 1
-        }
-      ])
-      .select('AlbumID')
-      .single();
+    const { data, error } = await supabase
+      .from('album') 
+      .insert([
+        { 
+          NamaAlbum: title, 
+          Deskripsi: description,
+          TanggalDibuat: new Date().toISOString().split('T')[0],
+          UserID: 1
+        }
+      ])
+      .select('AlbumID')
+      .single();
 
-    if (error) {
-      console.error('Supabase Error:', error.message);
-      return NextResponse.json(
-        { success: false, message: error.message },
-        { status: 500 }
-      );
-    }
+    if (error) {
+      console.error('Supabase Error:', error.message);
+      return NextResponse.json(
+        { success: false, message: error.message },
+        { status: 500 }
+      );
+    }
 
-    return NextResponse.json(
-      { success: true, message: 'Album sukses disimpan!', data },
-      { status: 201 }
-    );
+    return NextResponse.json(
+      { success: true, message: 'Album sukses disimpan!', data },
+      { status: 201 }
+    );
 
-  } catch (err: any) {
-    console.error('Server Error:', err.message);
-    return NextResponse.json(
-      { success: false, message: 'Internal Server Error' },
-      { status: 500 }
-    );
-  }
+  } catch (err: any) {
+    console.error('Server Error:', err.message);
+    return NextResponse.json(
+      { success: false, message: 'Internal Server Error' },
+      { status: 500 }
+    );
+  }
 }
+
 // GET /api/dashboard - Menampilkan data sesuai skema asli
 export async function GET() {
-  try {
-    const { data, error } = await supabase
-  .from('album')
-  .select(`
-    AlbumID,
-    NamaAlbum,
-    Deskripsi,
-    TanggalDibuat,
-    UserID,
-    foto ( LokasiFile )
-  `)
-  .order('AlbumID', { ascending: false });
+  try {
+    const { data, error } = await supabase
+      .from('album')
+      .select(`
+        AlbumID,
+        NamaAlbum,
+        Deskripsi,
+        TanggalDibuat,
+        UserID,
+        foto ( LokasiFile )
+      `)
+      .order('AlbumID', { ascending: false });
 
-    if (error) throw error;
+    if (error) throw error;
 
-    return NextResponse.json({ success: true, data }, { status: 200 });
-  } catch (err: any) {
-    return NextResponse.json({ success: false, message: err.message }, { status: 500 });
-  }
+    return NextResponse.json({ success: true, data }, { status: 200 });
+  } catch (err: any) {
+    return NextResponse.json({ success: false, message: err.message }, { status: 500 });
+  }
 }
+
 // PUT /api/dashboard - Mengubah/Edit Data Album (UPDATE)
 export async function PUT(request: Request) {
-  try {
-    const body = await request.json();
-    const { albumId, title, description } = body;
+  try {
+    const body = await request.json();
+    const { albumId, title, description } = body;
 
-    if (!albumId || !title || !description) {
-      return NextResponse.json({ success: false, message: 'Data kurang lengkap, Bin!' }, { status: 400 });
-    }
+    if (!albumId || !title || !description) {
+      return NextResponse.json({ success: false, message: 'Data kurang lengkap, Bin!' }, { status: 400 });
+    }
 
-    const { data, error } = await supabase
-      .from('album')
-      .update({ NamaAlbum: title, Deskripsi: description })
-      .eq('AlbumID', albumId)
-      .select()
-      .single();
+    const { data, error } = await supabase
+      .from('album')
+      .update({ NamaAlbum: title, Deskripsi: description })
+      .eq('AlbumID', albumId)
+      .select()
+      .single();
 
-    if (error) throw error;
+    if (error) throw error;
 
-    return NextResponse.json({ success: true, message: 'Album berhasil di-update!', data }, { status: 200 });
-  } catch (err: any) {
-    return NextResponse.json({ success: false, message: err.message }, { status: 500 });
-  }
+    return NextResponse.json({ success: true, message: 'Album berhasil di-update!', data }, { status: 200 });
+  } catch (err: any) {
+    return NextResponse.json({ success: false, message: err.message }, { status: 500 });
+  }
 }
 
-// DELETE /api/dashboard - Menghapus Album dari Database (DELETE)
 export async function DELETE(request: Request) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const albumId = searchParams.get('albumId');
+  try {
+    const { searchParams } = new URL(request.url);
+    const albumId = searchParams.get('albumId');
 
-    if (!albumId) {
-      return NextResponse.json({ success: false, message: 'AlbumID tidak ditemukan!' }, { status: 400 });
-    }
+    if (!albumId) {
+      return NextResponse.json({ success: false, message: 'AlbumID tidak ditemukan!' }, { status: 400 });
+    }
 
-    const { error } = await supabase
-      .from('album')
-      .delete()
-      .eq('AlbumID', albumId);
+    const { error: errorFoto } = await supabase
+      .from('foto')
+      .delete()
+      .eq('AlbumID', albumId);
 
-    if (error) throw error;
+    if (errorFoto) {
+      console.error('Gagal hapus data foto relasi:', errorFoto.message);
+      return NextResponse.json({ success: false, message: `Gagal bersihin foto: ${errorFoto.message}` }, { status: 500 });
+    }
 
-    return NextResponse.json({ success: true, message: 'Album berhasil dihapus dari Supabase!' }, { status: 200 });
-  } catch (err: any) {
-    return NextResponse.json({ success: false, message: err.message }, { status: 500 });
-  }
+    const { error: errorAlbum } = await supabase
+      .from('album')
+      .delete()
+      .eq('AlbumID', albumId);
+
+    if (errorAlbum) {
+      console.error('Gagal hapus album:', errorAlbum.message);
+      return NextResponse.json({ success: false, message: errorAlbum.message }, { status: 500 });
+    }
+
+    return NextResponse.json(
+      { success: true, message: 'Album beserta seluruh foto di dalamnya sukses dihapus total, Bin!' }, 
+      { status: 200 }
+    );
+
+  } catch (err: any) {
+    return NextResponse.json({ success: false, message: err.message }, { status: 500 });
+  }
 }
