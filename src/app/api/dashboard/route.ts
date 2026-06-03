@@ -8,11 +8,15 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey);
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { title, description, userId } = body;
+    const title = body.title;
+    const description = body.description;
+    const rawUserId = body.userId || body.currentUserId || body.ownerId;
 
     if (!title || !description) {
       return NextResponse.json({ success: false, message: 'Data wajib diisi!' }, { status: 400 });
     }
+
+    const finalUserId = rawUserId ? Number(rawUserId) : 1;
 
     const { data, error } = await supabase
       .from('album') 
@@ -21,7 +25,7 @@ export async function POST(request: Request) {
           NamaAlbum: title, 
           Deskripsi: description,
           TanggalDibuat: new Date().toISOString().split('T')[0],
-          UserID: userId ? Number(userId) : 1
+          UserID: finalUserId
         }
       ])
       .select('AlbumID')
@@ -44,30 +48,11 @@ export async function GET() {
         Deskripsi,
         TanggalDibuat,
         UserID,
-        user ( NamaUser ),
         foto ( FotoID, LokasiFile )
       `)
       .order('AlbumID', { ascending: false });
 
-    if (error) {
-      console.error("Supabase GET Error:", error.message);
-      
-      const { data: fallbackData, error: fallbackError } = await supabase
-        .from('album')
-        .select(`
-          AlbumID,
-          NamaAlbum,
-          Deskripsi,
-          TanggalDibuat,
-          UserID,
-          foto ( FotoID, LokasiFile )
-        `)
-        .order('AlbumID', { ascending: false });
-        
-      if (fallbackError) throw fallbackError;
-      return NextResponse.json({ success: true, data: fallbackData }, { status: 200 });
-    }
-
+    if (error) throw error;
     return NextResponse.json({ success: true, data }, { status: 200 });
   } catch (err: any) {
     return NextResponse.json({ success: false, message: err.message }, { status: 500 });
@@ -137,12 +122,11 @@ export async function DELETE(request: Request) {
     if (currentAlbum.UserID !== Number(currentUserId)) {
       return NextResponse.json({ 
         success: false, 
-        message: 'Gak bisa main hapus aja, lu bukan pemilik album ini!' 
+        message: 'Gak bisa hapus, anda bukan pemilik album ini!' 
       }, { status: 403 });
     }
 
     await supabase.from('foto').delete().eq('AlbumID', albumId);
-    
     const { error } = await supabase.from('album').delete().eq('AlbumID', albumId);
     if (error) throw error;
 
