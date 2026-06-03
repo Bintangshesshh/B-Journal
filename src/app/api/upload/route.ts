@@ -68,13 +68,14 @@ export async function DELETE(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const fotoId = searchParams.get('fotoId');
-    const urlFoto = searchParams.get('urlFoto'); 
+    const urlFotoRaw = searchParams.get('urlFoto'); 
 
     let query = supabase.from('foto').delete();
 
     if (fotoId && fotoId !== '-1') {
       query = query.eq('FotoID', fotoId);
-    } else if (urlFoto) {
+    } else if (urlFotoRaw) {
+      const urlFoto = decodeURIComponent(urlFotoRaw);
       query = query.eq('LokasiFile', urlFoto);
     } else {
       return NextResponse.json({ success: false, message: 'ID atau URL Foto tidak ditemukan!' }, { status: 400 });
