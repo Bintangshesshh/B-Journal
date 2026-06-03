@@ -8,13 +8,10 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey);
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { title, description } = body;
+    const { title, description, userId } = body;
 
     if (!title || !description) {
-      return NextResponse.json(
-        { success: false, message: 'Title dan Description wajib diisi, Bin!' },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, message: 'Data wajib diisi!' }, { status: 400 });
     }
 
     const { data, error } = await supabase
@@ -24,20 +21,16 @@ export async function POST(request: Request) {
           NamaAlbum: title, 
           Deskripsi: description,
           TanggalDibuat: new Date().toISOString().split('T')[0],
-          UserID: 1
+          UserID: userId ? Number(userId) : 1
         }
       ])
       .select('AlbumID')
       .single();
 
-    if (error) {
-      console.error('Supabase Error:', error.message);
-      return NextResponse.json({ success: false, message: error.message }, { status: 500 });
-    }
-
+    if (error) throw error;
     return NextResponse.json({ success: true, message: 'Album sukses disimpan!', data }, { status: 201 });
   } catch (err: any) {
-    return NextResponse.json({ success: false, message: 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json({ success: false, message: err.message }, { status: 500 });
   }
 }
 
@@ -51,6 +44,7 @@ export async function GET() {
         Deskripsi,
         TanggalDibuat,
         UserID,
+        user ( NamaUser ),
         foto ( LokasiFile )
       `)
       .order('AlbumID', { ascending: false });
@@ -65,10 +59,27 @@ export async function GET() {
 export async function PUT(request: Request) {
   try {
     const body = await request.json();
-    const { albumId, title, description } = body;
+    const { albumId, title, description, currentUserId } = body;
 
-    if (!albumId || !title || !description) {
-      return NextResponse.json({ success: false, message: 'Data kurang lengkap, Bin!' }, { status: 400 });
+    if (!albumId || !title || !description || !currentUserId) {
+      return NextResponse.json({ success: false, message: 'Data validasi tidak lengkap!' }, { status: 400 });
+    }
+
+    const { data: currentAlbum, error: checkError } = await supabase
+      .from('album')
+      .select('UserID')
+      .eq('AlbumID', albumId)
+      .single();
+
+    if (checkError || !currentAlbum) {
+      return NextResponse.json({ success: false, message: 'Album tidak ditemukan!' }, { status: 404 });
+    }
+
+    if (currentAlbum.UserID !== Number(currentUserId)) {
+      return NextResponse.json({ 
+        success: false, 
+        message: 'Akses ditolak! Lu bukan owner asli album ini, Bin!' 
+      }, { status: 403 });
     }
 
     const { data, error } = await supabase
@@ -89,17 +100,34 @@ export async function DELETE(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const albumId = searchParams.get('albumId');
+    const currentUserId = searchParams.get('currentUserId');
 
-    if (!albumId) {
-      return NextResponse.json({ success: false, message: 'AlbumID tidak ditemukan!' }, { status: 400 });
+    if (!albumId || !currentUserId) {
+      return NextResponse.json({ success: false, message: 'ID Album atau User tidak valid!' }, { status: 400 });
+    }
+
+    const { data: currentAlbum, error: checkError } = await supabase
+      .from('album')
+      .select('UserID')
+      .eq('AlbumID', albumId)
+      .single();
+
+    if (checkError || !currentAlbum) {
+      return NextResponse.json({ success: false, message: 'Album tidak ditemukan!' }, { status: 404 });
+    }
+
+    if (currentAlbum.UserID !== Number(currentUserId)) {
+      return NextResponse.json({ 
+        success: false, 
+        message: 'Gak bisa main hapus aja, lu bukan pemilik album ini!' 
+      }, { status: 403 });
     }
 
     await supabase.from('foto').delete().eq('AlbumID', albumId);
-
     const { error } = await supabase.from('album').delete().eq('AlbumID', albumId);
     if (error) throw error;
 
-    return NextResponse.json({ success: true, message: 'Album & isinya berhasil dihapus!' }, { status: 200 });
+    return NextResponse.json({ success: true, message: 'Album & isinya berhasil dimusnahkan!' }, { status: 200 });
   } catch (err: any) {
     return NextResponse.json({ success: false, message: err.message }, { status: 500 });
   }
