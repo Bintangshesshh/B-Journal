@@ -45,11 +45,29 @@ export async function GET() {
         TanggalDibuat,
         UserID,
         user ( NamaUser ),
-        foto ( LokasiFile )
+        foto ( FotoID, LokasiFile )
       `)
       .order('AlbumID', { ascending: false });
 
-    if (error) throw error;
+    if (error) {
+      console.error("Supabase GET Error:", error.message);
+      
+      const { data: fallbackData, error: fallbackError } = await supabase
+        .from('album')
+        .select(`
+          AlbumID,
+          NamaAlbum,
+          Deskripsi,
+          TanggalDibuat,
+          UserID,
+          foto ( FotoID, LokasiFile )
+        `)
+        .order('AlbumID', { ascending: false });
+        
+      if (fallbackError) throw fallbackError;
+      return NextResponse.json({ success: true, data: fallbackData }, { status: 200 });
+    }
+
     return NextResponse.json({ success: true, data }, { status: 200 });
   } catch (err: any) {
     return NextResponse.json({ success: false, message: err.message }, { status: 500 });
@@ -124,6 +142,7 @@ export async function DELETE(request: Request) {
     }
 
     await supabase.from('foto').delete().eq('AlbumID', albumId);
+    
     const { error } = await supabase.from('album').delete().eq('AlbumID', albumId);
     if (error) throw error;
 
