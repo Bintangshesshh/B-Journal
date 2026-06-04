@@ -8,7 +8,8 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey);
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { AlbumID, ImageBase64 } = body;
+    
+    const { AlbumID, ImageBase64, userId, currentUserId, UserID } = body;
 
     if (!AlbumID || !ImageBase64) {
       return NextResponse.json(
@@ -16,6 +17,8 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
+
+    const finalId = userId || currentUserId || UserID;
 
     const cleanBase64 = ImageBase64.replace(/^data:image\/\w+;base64,/, '');
     const imageBuffer = Buffer.from(cleanBase64, 'base64');
@@ -39,17 +42,17 @@ export async function POST(request: Request) {
     const lokasiFileUrl = publicUrlData.publicUrl;
 
     const { data: fotoData, error: dbError } = await supabase
-  .from('foto')
-  .insert([
-    {
-      AlbumID: Number(AlbumID),
-      LokasiFile: lokasiFileUrl,
-      JudulFoto: 'Uploaded via Android',
-      DeskripsiFoto: 'inilah b-journal',
-      TanggalUnggah: new Date().toISOString().split('T')[0],
-      UserID: UserID ? Number(UserID) : 1
-    }
-  ])
+      .from('foto')
+      .insert([
+        {
+          AlbumID: Number(AlbumID),
+          LokasiFile: lokasiFileUrl,
+          JudulFoto: 'Uploaded via Android',
+          DeskripsiFoto: 'inilah b-journal',
+          TanggalUnggah: new Date().toISOString().split('T')[0],
+          UserID: finalId ? Number(finalId) : 1
+        }
+      ])
       .select()
       .single();
 
