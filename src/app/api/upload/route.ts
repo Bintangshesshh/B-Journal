@@ -39,17 +39,17 @@ export async function POST(request: Request) {
     const lokasiFileUrl = publicUrlData.publicUrl;
 
     const { data: fotoData, error: dbError } = await supabase
-      .from('foto')
-      .insert([
-        {
-          AlbumID: Number(AlbumID),
-          LokasiFile: lokasiFileUrl,
-          JudulFoto: 'Uploaded via Android',
-          DeskripsiFoto: 'inilah b-journal',
-          TanggalUnggah: new Date().toISOString().split('T')[0],
-          UserID: 1
-        }
-      ])
+  .from('foto')
+  .insert([
+    {
+      AlbumID: Number(AlbumID),
+      LokasiFile: lokasiFileUrl,
+      JudulFoto: 'Uploaded via Android',
+      DeskripsiFoto: 'inilah b-journal',
+      TanggalUnggah: new Date().toISOString().split('T')[0],
+      UserID: UserID ? Number(UserID) : 1
+    }
+  ])
       .select()
       .single();
 
