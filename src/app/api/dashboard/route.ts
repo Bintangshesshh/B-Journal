@@ -5,9 +5,12 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const { data, error } = await supabase
+    const { searchParams } = new URL(request.url);
+    const currentUserId = searchParams.get('currentUserId');
+
+    let query = supabase
       .from('album')
       .select(`
         AlbumID,
@@ -17,8 +20,13 @@ export async function GET() {
         UserID,
         user ( Username, NamaLengkap ),
         foto ( FotoID, LokasiFile )
-      `)
-      .order('AlbumID', { ascending: false });
+      `);
+
+    if (currentUserId) {
+      query = query.eq('UserID', Number(currentUserId));
+    }
+
+    const { data, error } = await query.order('AlbumID', { ascending: false });
 
     if (error) throw error;
     return NextResponse.json({ success: true, data }, { status: 200 });
