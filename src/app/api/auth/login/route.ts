@@ -23,7 +23,6 @@ export async function POST(request: Request) {
 
     const supabase = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } });
     const body = await request.json();
-    
     const username = String(body?.username || '').trim();
     const password = String(body?.password || '');
 
